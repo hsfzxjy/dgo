@@ -1,0 +1,44 @@
+name: dgo
+description: Interop between Dart and Go on Android.
+version: 0.1.0
+
+environment:
+  sdk: ">=2.17.5 <3.0.0"
+
+dependencies:
+  meta: ^1.8.0
+
+dev_dependencies:
+  ffigen: ^6.1.2
+  import_sorter: ^4.6.0
+  lints: ^2.0.0
+  quiver: ^3.1.0
+  test: ^1.16.0
+
+import_sorter:
+  ignored_files:
+    - lib/dgo_binding.dart
+
+ffigen:
+  output: lib/dgo_binding.dart
+  name: LibDgo
+  headers:
+    entry-points:
+      - ../build/include/go.h
+      - ../go/ffi.h
+    include-directives:
+      - ../build/include/go.h
+      - ../go/ffi.h
+  functions:
+    exclude:
+      - "_.*"
+      - "dgo__.*"
+  structs:
+    exclude:
+      - "_.*"
+      - "dgo__.*"
+      - "^Go.*"
+  globals:
+    exclude:
+      - "_.*"
+      - "dgo__.*"
