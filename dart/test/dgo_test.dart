@@ -145,6 +145,13 @@ void main() {
       lookupIntU32Func(dylib, 'TestDartFastVoid')(dcb);
       return timeout(com.future);
     });
+
+    test('Fallible', () async {
+      final dcb = Dgo.pendDart(() {});
+      Dgo.removeDart(dcb);
+      lookupIntU32Func(dylib, 'TestDartFallible')(dcb);
+      return Future.delayed(Duration(milliseconds: 10));
+    });
   });
 
   group('Test Dart Future:', () {
@@ -225,6 +232,16 @@ void main() {
       });
       comMap[dcb] = com;
       lookupIntU32Func(dylib, 'TestGoFastVoid')(dcb);
+      return timeout(com.future);
+    });
+
+    test('Fallible', () async {
+      final com = Completer();
+      final dcb = Dgo.pendDart((int gcb) {
+        GoCallback(gcb).flag(CF.pop().fallible()).call([]);
+        com.complete();
+      });
+      lookupIntU32Func(dylib, 'TestGoFallible')(dcb);
       return timeout(com.future);
     });
   });

@@ -19,11 +19,13 @@ const (
 	CF_FAST_YES  CallbackFlag = CF_FAST + (2 << (cfBitsStart + 4))
 	CF_FAST_NO   CallbackFlag = CF_FAST + (3 << (cfBitsStart + 4))
 
-	cf_fut_reject  CallbackFlag = 0 << (cfBitsStart + 6)
-	cf_fut_resolve CallbackFlag = 1 << (cfBitsStart + 6)
+	CF_FALLIBLE CallbackFlag = 1 << (cfBitsStart + 6)
+
+	cf_fut_reject  CallbackFlag = 0 << (cfBitsStart + 7)
+	cf_fut_resolve CallbackFlag = 1 << (cfBitsStart + 7)
 )
 
-// 6 <= n <= 15
+// 8 <= n <= 15
 func CF_CUSTOM(n int) CallbackFlag {
 	return CallbackFlag(1 << (cfBitsStart + n))
 }
@@ -62,6 +64,9 @@ func (cf CallbackFlag) FastKind() CFFastKind {
 	kind >>= cfBitsFastStart
 	return CFFastKind(kind + 1)
 }
+
+func (cf CallbackFlag) Fallible() CallbackFlag { return cf | CF_FALLIBLE }
+func (cf CallbackFlag) HasFallible() bool      { return cf&CF_FALLIBLE != 0 }
 
 type CFFastKind int
 

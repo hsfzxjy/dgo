@@ -141,6 +141,12 @@ func TestDartFastVoid(cdcb C.uint32_t) int {
 	return 0
 }
 
+//export TestDartFallible
+func TestDartFallible(cdcb C.uint32_t) int {
+	dgo.WrapDartCallback(cdcb).Flag(dgo.CF_POP.Fallible()).Call()
+	return 0
+}
+
 //export TestDartFutureResolve
 func TestDartFutureResolve(cdcb C.uint32_t) int {
 	dgo.WrapDartCallback(cdcb).AsFut().Resolve(42)
@@ -231,5 +237,15 @@ func TestGoFastVoid(cdcb C.uint32_t) int {
 		Call(dgo.PendGo(func() {
 			resolveCase(cdcb)
 		}))
+	return 0
+}
+
+//export TestGoFallible
+func TestGoFallible(cdcb C.uint32_t) int {
+	gcb := dgo.PendGo(func() {})
+	gcb.Remove()
+	dgo.WrapDartCallback(cdcb).
+		Flag(dgo.CF.Pop()).
+		Call(gcb)
 	return 0
 }

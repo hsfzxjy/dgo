@@ -56,10 +56,12 @@ const _cfFastYes = _cfFast + (2 << (_cfBitsStart + 4));
 // ignore:unused_element
 const _cfFastNo = _cfFast + (3 << (_cfBitsStart + 4));
 
+const _cfFallible = 1 << (_cfBitsStart + 6);
+
 // ignore:unused_element
-const _cfFutReject = 0 << (_cfBitsStart + 6);
+const _cfFutReject = 0 << (_cfBitsStart + 7);
 // ignore:unused_element
-const _cfFutResolve = 1 << (_cfBitsStart + 6);
+const _cfFutResolve = 1 << (_cfBitsStart + 7);
 
 @immutable
 class CallbackFlag {
@@ -68,8 +70,9 @@ class CallbackFlag {
   bool get hasPop => _internal & _cfPop != 0;
   bool get hasWithCode => _internal & _cfWithCode != 0;
   bool get hasPackArray => _internal & _cfPackArray != 0;
-  bool get hasFast => fastKind != FastKind.none;
+  bool get hasFast => _internal & _cfFast != 0;
   FastKind get fastKind => FastKind._fromFlagInt(_internal);
+  bool get hasFallible => _internal & _cfFallible != 0;
 
   const CallbackFlag._(this._internal);
   const CallbackFlag() : this._(0);
@@ -78,6 +81,7 @@ class CallbackFlag {
   CallbackFlag withCode() => CallbackFlag._(_internal | _cfWithCode);
   CallbackFlag packArray() => CallbackFlag._(_internal | _cfPackArray);
   CallbackFlag fast(FastKind kind) => CallbackFlag._(kind._applyOn(_internal));
+  CallbackFlag fallible() => CallbackFlag._(_internal | _cfFallible);
 
   bool isBitSet(int bitFlag) => bitFlag & _internal != 0;
 }

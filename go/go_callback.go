@@ -2,6 +2,7 @@ package dgo
 
 import (
 	"fmt"
+	"log"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -46,6 +47,15 @@ func (gcb GoCallback) handle(objs []any) {
 		v      any
 		loaded bool
 	)
+
+	if cf.HasFallible() {
+		defer func() {
+			if p := recover(); p != nil {
+				log.Printf("%+v\n", p)
+			}
+		}()
+	}
+
 	if cf.HasPop() {
 		v, loaded = goCallbackMap.LoadAndDelete(id)
 	} else {

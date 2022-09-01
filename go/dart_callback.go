@@ -29,6 +29,9 @@ func (dcb DartCallback) IsIllegal() bool {
 }
 
 func (dcb DartCallback) Flag(cf CallbackFlag) CallableDartCallback {
+	if dcb == 0 {
+		panic("dgo:go dart callback with zero value found, maybe uninitialized")
+	}
 	if dcb.IsIllegal() {
 		return illegalCallableDartCallback
 	}

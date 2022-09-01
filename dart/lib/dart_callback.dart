@@ -21,6 +21,19 @@ void _dartCallbackHandle(List objs) {
 
   final int dcb = objs[0];
   final cf = CallbackFlag._(dcb);
+
+  if (cf.hasFallible) {
+    try {
+      _dartCallbackHandleFallibleSection(objs, dcb, cf);
+    } catch (e) {
+      log('$e', level: Level.WARNING.value);
+    }
+  } else {
+    _dartCallbackHandleFallibleSection(objs, dcb, cf);
+  }
+}
+
+void _dartCallbackHandleFallibleSection(List objs, int dcb, CallbackFlag cf) {
   final id = dcb & (_maxDartCallbackId - 1);
 
   final Function? fn;

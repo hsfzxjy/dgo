@@ -33,7 +33,7 @@ test:
 	make
 	cd ../../dart
 	export LD_LIBRARY_PATH=$(BUILD_DIR)
-	dart run test
+	dart run test --reporter=expanded --debug
 
 .PHONY: tidy
 tidy:
