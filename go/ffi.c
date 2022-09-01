@@ -14,7 +14,7 @@ extern void dgo__GoFinalizer(uintptr_t, uintptr_t);
 
 uintptr_t dgo__pGoFinalizer = (uintptr_t)(&dgo__GoFinalizer);
 
-Dart_Port_DL dgo_InitFFI(void *data, Dart_Port_DL sendPort) {
+void dgo_InitFFI(void *data, Dart_Port_DL sendPort) {
   if (dartReceivePort != ILLEGAL_PORT) {
     Dart_CloseNativePort_DL(sendPort);
   }

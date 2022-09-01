@@ -24,9 +24,9 @@ typedef struct {
   uintptr_t           callback; // mod: from Dart_HandleFinalizer
 } dgo__Dart_Cobject_AsExternalTypedData;
 
-Dart_Port_DL dgo_InitFFI(void *data, Dart_Port_DL sendPort);
-bool         dgo__PostCObjects(int cnt, Dart_CObject *cobjs);
-bool         dgo__PostInt(int64_t);
+void dgo_InitFFI(void *data, Dart_Port_DL sendPort);
+bool dgo__PostCObjects(int cnt, Dart_CObject *cobjs);
+bool dgo__PostInt(int64_t);
 
 extern uintptr_t dgo__pGoFinalizer;
 
