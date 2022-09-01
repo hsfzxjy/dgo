@@ -4,6 +4,7 @@ package main
 import "C"
 import (
 	"dgo"
+	"errors"
 	"fmt"
 )
 
@@ -137,6 +138,18 @@ func TestDartFastVoid(cdcb C.uint32_t) int {
 	dcb := dgo.WrapDartCallback(cdcb)
 	dcb.Flag(dgo.CF_FAST_VOID.Pop()).Call()
 
+	return 0
+}
+
+//export TestDartFutureResolve
+func TestDartFutureResolve(cdcb C.uint32_t) int {
+	dgo.WrapDartCallback(cdcb).AsFut().Resolve(42)
+	return 0
+}
+
+//export TestDartFutureReject
+func TestDartFutureReject(cdcb C.uint32_t) int {
+	dgo.WrapDartCallback(cdcb).AsFut().Reject(errors.New("this is an error"))
 	return 0
 }
 

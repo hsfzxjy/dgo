@@ -18,6 +18,9 @@ const (
 	CF_FAST_NIL  CallbackFlag = CF_FAST + (1 << (cfBitsStart + 4))
 	CF_FAST_YES  CallbackFlag = CF_FAST + (2 << (cfBitsStart + 4))
 	CF_FAST_NO   CallbackFlag = CF_FAST + (3 << (cfBitsStart + 4))
+
+	cf_fut_reject  CallbackFlag = 0 << (cfBitsStart + 6)
+	cf_fut_resolve CallbackFlag = 1 << (cfBitsStart + 6)
 )
 
 // 6 <= n <= 15
