@@ -25,7 +25,7 @@ class LibDgo {
       _lookup<ffi.NativeFunction<ffi.Void Function()>>('dgo_InitGo');
   late final _dgo_InitGo = _dgo_InitGoPtr.asFunction<void Function()>();
 
-  int dgo_InitFFI(
+  void dgo_InitFFI(
     ffi.Pointer<ffi.Void> data,
     int sendPort,
   ) {
@@ -37,10 +37,10 @@ class LibDgo {
 
   late final _dgo_InitFFIPtr = _lookup<
       ffi.NativeFunction<
-          Dart_Port_DL Function(
+          ffi.Void Function(
               ffi.Pointer<ffi.Void>, Dart_Port_DL)>>('dgo_InitFFI');
   late final _dgo_InitFFI =
-      _dgo_InitFFIPtr.asFunction<int Function(ffi.Pointer<ffi.Void>, int)>();
+      _dgo_InitFFIPtr.asFunction<void Function(ffi.Pointer<ffi.Void>, int)>();
 }
 
 typedef Dart_Port_DL = ffi.Int64;
