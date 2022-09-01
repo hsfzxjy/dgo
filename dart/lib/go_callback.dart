@@ -6,7 +6,7 @@ class GoCallback {
   const GoCallback(this._id);
 
   CallableGoCallback flag(CallbackFlag cf) =>
-      CallableGoCallback(_id | cf._asInt(), cf);
+      CallableGoCallback(_id | cf._internal, cf);
 }
 
 @immutable

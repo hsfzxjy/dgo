@@ -20,7 +20,7 @@ void _dartCallbackHandle(List objs) {
   if (objs.isEmpty) throw 'dgo:dart empty argument array';
 
   final int dcb = objs[0];
-  final cf = CallbackFlag._fromInt(dcb);
+  final cf = CallbackFlag._(dcb);
   final id = dcb & (_maxDartCallbackId - 1);
 
   final Function? fn;

@@ -28,54 +28,58 @@ enum FastKind {
         throw 'unreachable';
     }
   }
+
+  int _applyOn(int flag) {
+    flag = flag & ~(_cfFast * 7); // 0b111. clear flag
+    if (this == none) return flag;
+    flag |= _cfFast;
+    flag += (value - 1) << _cfBitsFastStart;
+    return flag;
+  }
 }
 
 const _cfBitsStart = 32;
+const _cfBitsFastStart = _cfBitsStart + 4;
+
+const _cfPop = 1 << (_cfBitsStart + 0);
+
+const _cfWithCode = 1 << (_cfBitsStart + 1);
+const _cfPackArray = 1 << (_cfBitsStart + 2);
+
+const _cfFast = 1 << (_cfBitsStart + 3);
+// ignore:unused_element
+const _cfFastVoid = _cfFast + (0 << (_cfBitsStart + 4));
+// ignore:unused_element
+const _cfFastNil = _cfFast + (1 << (_cfBitsStart + 4));
+// ignore:unused_element
+const _cfFastYes = _cfFast + (2 << (_cfBitsStart + 4));
+// ignore:unused_element
+const _cfFastNo = _cfFast + (3 << (_cfBitsStart + 4));
+
+// ignore:unused_element
+const _cfFutReject = 0 << (_cfBitsStart + 6);
+// ignore:unused_element
+const _cfFutResolve = 1 << (_cfBitsStart + 6);
 
 @immutable
 class CallbackFlag {
-  final bool hasPop;
-  final bool hasWithCode;
-  final bool hasPackArray;
-  final FastKind fastKind;
+  final int _internal;
 
+  bool get hasPop => _internal & _cfPop != 0;
+  bool get hasWithCode => _internal & _cfWithCode != 0;
+  bool get hasPackArray => _internal & _cfPackArray != 0;
   bool get hasFast => fastKind != FastKind.none;
+  FastKind get fastKind => FastKind._fromFlagInt(_internal);
 
-  const CallbackFlag._(
-      this.hasPop, this.hasWithCode, this.hasPackArray, this.fastKind);
-  const CallbackFlag() : this._(false, false, false, FastKind.none);
+  const CallbackFlag._(this._internal);
+  const CallbackFlag() : this._(0);
 
-  CallbackFlag pop() =>
-      CallbackFlag._(true, hasWithCode, hasPackArray, fastKind);
-  CallbackFlag withCode() =>
-      CallbackFlag._(hasPop, true, hasPackArray, fastKind);
-  CallbackFlag packArray() =>
-      CallbackFlag._(hasPop, hasWithCode, true, fastKind);
-  CallbackFlag fast(FastKind kind) =>
-      CallbackFlag._(hasPop, hasWithCode, hasPackArray, kind);
+  CallbackFlag pop() => CallbackFlag._(_internal | _cfPop);
+  CallbackFlag withCode() => CallbackFlag._(_internal | _cfWithCode);
+  CallbackFlag packArray() => CallbackFlag._(_internal | _cfPackArray);
+  CallbackFlag fast(FastKind kind) => CallbackFlag._(kind._applyOn(_internal));
 
-  int _asInt() {
-    int x = 0;
-    if (hasPop) x |= 1 << (_cfBitsStart + 0);
-    if (hasWithCode) x |= 1 << (_cfBitsStart + 1);
-    if (hasPackArray) x |= 1 << (_cfBitsStart + 2);
-    switch (fastKind) {
-      case FastKind.none:
-        break;
-      default:
-        x |= 1 << (_cfBitsStart + 3);
-        x += (fastKind.value - 1) << (_cfBitsStart + 4);
-    }
-    return x;
-  }
-
-  factory CallbackFlag._fromInt(int x) {
-    final hasPop = x & (1 << (_cfBitsStart + 0)) != 0;
-    final hasWithCode = x & (1 << (_cfBitsStart + 1)) != 0;
-    final hasPackArray = x & (1 << (_cfBitsStart + 2)) != 0;
-    final fastKind = FastKind._fromFlagInt(x);
-    return CallbackFlag._(hasPop, hasWithCode, hasPackArray, fastKind);
-  }
+  bool isBitSet(int bitFlag) => bitFlag & _internal != 0;
 }
 
 //ignore: constant_identifier_names
