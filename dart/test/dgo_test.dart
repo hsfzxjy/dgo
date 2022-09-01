@@ -147,6 +147,29 @@ void main() {
     });
   });
 
+  group('Test Dart Future:', () {
+    test('Resolve', () async {
+      final com = Completer();
+      final dcb = Dgo.pendCompleter(com);
+      lookupIntU32Func(dylib, 'TestDartFutureResolve')(dcb);
+      final x = await com.future;
+      assert(x == 42);
+      assert(!Dgo.dartCallbackExist(dcb));
+    });
+
+    test('Reject', () async {
+      final com = Completer();
+      final dcb = Dgo.pendCompleter(com);
+      lookupIntU32Func(dylib, 'TestDartFutureReject')(dcb);
+      try {
+        await com.future;
+      } catch (e) {
+        assert(e == 'this is an error');
+      }
+      assert(!Dgo.dartCallbackExist(dcb));
+    });
+  });
+
   group('Test Go Flag:', () {
     test('Pop', () async {
       final com = Completer();
