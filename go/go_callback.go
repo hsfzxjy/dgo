@@ -27,6 +27,10 @@ func PendGo(cb any) GoCallback {
 	return GoCallback(nextId)
 }
 
+func (gcb GoCallback) Remove() {
+	goCallbackMap.Delete(uint32(gcb))
+}
+
 func (gcb GoCallback) Exists() bool {
 	_, loaded := goCallbackMap.Load(uint32(gcb))
 	return loaded
