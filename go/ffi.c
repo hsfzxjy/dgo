@@ -2,10 +2,6 @@
 
 #include <stdlib.h>
 
-bool Dgo_CloseNativePort_DL(Dart_Port_DL port) {
-  return Dart_CloseNativePort_DL(port);
-}
-
 static Dart_Port_DL dartSendPort = ILLEGAL_PORT;
 static Dart_Port_DL dartReceivePort = ILLEGAL_PORT;
 
