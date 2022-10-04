@@ -1,0 +1,7 @@
+go 1.18
+
+use ./dgo-gen
+use ./go
+
+use ./tests/dummyso
+use ./tests/gen_tests
