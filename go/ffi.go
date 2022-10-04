@@ -5,11 +5,30 @@ package dgo
 */
 import "C"
 import (
+	"bytes"
 	"fmt"
 	"reflect"
 	"runtime"
 	"runtime/cgo"
 	"unsafe"
+)
+
+type (
+	Dart_CObject                     = C.dgo__Dart_CObject
+	Dart_CObject_Type                = C.Dart_CObject_Type
+	Dart_CObject_AsArray             = C.dgo__Dart_CObject_AsArray
+	Dart_CObject_AsTypedData         = C.dgo__Dart_CObject_AsTypedData
+	Dart_Cobject_AsExternalTypedData = C.dgo__Dart_Cobject_AsExternalTypedData
+)
+
+const (
+	Dart_CObject_kNull      = C.Dart_CObject_kNull
+	Dart_CObject_kBool      = C.Dart_CObject_kBool
+	Dart_CObject_kInt32     = C.Dart_CObject_kInt32
+	Dart_CObject_kInt64     = C.Dart_CObject_kInt64
+	Dart_CObject_kDouble    = C.Dart_CObject_kDouble
+	Dart_CObject_kString    = C.Dart_CObject_kString
+	Dart_CObject_kTypedData = C.Dart_CObject_kTypedData
 )
 
 //export dgo__GoFinalizer
@@ -20,7 +39,7 @@ func dgo__GoFinalizer(callback_data C.uintptr_t, peer C.uintptr_t) {
 }
 
 //export dgo__HandleNativeMessage
-func dgo__HandleNativeMessage(port C.Dart_Port_DL, msg *C.Dart_CObject) {
+func dgo__HandleNativeMessage(port C.Dart_Port_DL, msg *Dart_CObject) {
 	objs := cobjectUnpack(msg)
 	if len(objs) == 0 {
 		panic("dgo:go empty cobject array")
@@ -59,11 +78,11 @@ func (dcb CallableDartCallback) Call(args ...any) bool {
 	return bool(ret)
 }
 
-const _MAX_ARRAY_LEN = 1<<30 - 1
+const MAX_ARRAY_LEN = 1<<30 - 1
 
-func cobjectUnpack(cobjArr *C.Dart_CObject) []any {
-	pValue := unsafe.Pointer(&cobjArr.value)
-	switch cobjArr._type {
+func cobjectUnpack(cobjArr *Dart_CObject) []any {
+	pValue := unsafe.Pointer(&cobjArr.Value)
+	switch cobjArr.Type {
 	case C.Dart_CObject_kArray:
 		break
 	case C.Dart_CObject_kInt32:
@@ -71,12 +90,12 @@ func cobjectUnpack(cobjArr *C.Dart_CObject) []any {
 	case C.Dart_CObject_kInt64:
 		return []any{int64(*(*C.int64_t)(pValue))}
 	default:
-		panic(fmt.Sprintf("dgo:go expect cobject with kArray, got kind=%d", cobjArr._type))
+		panic(fmt.Sprintf("dgo:go expect cobject with kArray, got kind=%d", cobjArr.Type))
 	}
 
 	pArr := (*C.dgo__Dart_CObject_AsArray)(pValue)
-	length := pArr.length
-	pCobjs := (*[_MAX_ARRAY_LEN]*C.Dart_CObject)(unsafe.Pointer(pArr.values))
+	length := pArr.Length
+	pCobjs := (*[MAX_ARRAY_LEN]*C.Dart_CObject)(unsafe.Pointer(pArr.Values))
 
 	rets := make([]any, length)
 	for i, cobj := range pCobjs[:length] {
@@ -100,12 +119,9 @@ func cobjectAs(cobj *C.Dart_CObject) any {
 	case C.Dart_CObject_kDouble:
 		return float64(*(*C.double)(pValue))
 	case C.Dart_CObject_kString:
-		pArr := *(**[_MAX_ARRAY_LEN]byte)(pValue)
-		length := 0
-		for length < _MAX_ARRAY_LEN && pArr[length] != '\x00' {
-			length++
-		}
-		if pArr[length] != '\x00' {
+		pArr := *(**[MAX_ARRAY_LEN]byte)(pValue)
+		length := bytes.IndexByte(pArr[:], '\x00')
+		if length < 0 || pArr[length] != '\x00' {
 			panic("dgo:go string too long")
 		}
 		bytes := make([]byte, length)
@@ -113,13 +129,13 @@ func cobjectAs(cobj *C.Dart_CObject) any {
 		return string(bytes)
 	case C.Dart_CObject_kTypedData:
 		pStruct := (*C.dgo__Dart_CObject_AsTypedData)(pValue)
-		length := pStruct.length
-		pAddr := unsafe.Pointer(pStruct.values)
-		switch pStruct._type {
+		length := pStruct.Length
+		pAddr := unsafe.Pointer(pStruct.Values)
+		switch pStruct.Type {
 		case C.Dart_TypedData_kUint8:
 			return unsafe.Slice((*uint8)(pAddr), length)
 		default:
-			panic(fmt.Sprintf("dgo:go unsupported typed data, kind=%d", pStruct._type))
+			panic(fmt.Sprintf("dgo:go unsupported typed data, kind=%d", pStruct.Type))
 		}
 	default:
 		panic(fmt.Sprintf("dgo:go unsupport cobject, kind=%d", cobj._type))
@@ -149,9 +165,9 @@ func cobjectFrom(cobj *C.Dart_CObject, xx any) (mod any) {
 		header := (*reflect.SliceHeader)(unsafe.Pointer(&x))
 		cobj._type = C.Dart_CObject_kTypedData
 		pValue := (*C.dgo__Dart_CObject_AsTypedData)(unsafe.Pointer(&cobj.value))
-		pValue._type = C.Dart_TypedData_kUint8
-		pValue.length = C.intptr_t(header.Len)
-		pValue.values = (*C.uint8_t)(unsafe.Pointer(header.Data))
+		pValue.Type = C.Dart_TypedData_kUint8
+		pValue.Length = C.intptr_t(header.Len)
+		pValue.Values = (*C.uint8_t)(unsafe.Pointer(header.Data))
 	case string:
 		if len(x) == 0 || x[len(x)-1] != '\x00' {
 			x = x + "\x00"
@@ -172,11 +188,11 @@ func cobjectFrom(cobj *C.Dart_CObject, xx any) (mod any) {
 		}
 		cobj._type = C.Dart_CObject_kExternalTypedData
 		pValue := (*C.dgo__Dart_Cobject_AsExternalTypedData)(unsafe.Pointer(&cobj.value))
-		pValue._type = tkind
-		pValue.length = C.intptr_t(header.Len)
-		pValue.data = (*C.uint8_t)(unsafe.Pointer(header.Data))
-		pValue.peer = C.uintptr_t(x.asCgoHandle())
-		pValue.callback = C.dgo__pGoFinalizer
+		pValue.Type = tkind
+		pValue.Length = C.intptr_t(header.Len)
+		pValue.Data = (*C.uint8_t)(unsafe.Pointer(header.Data))
+		pValue.Peer = C.uintptr_t(x.asCgoHandle())
+		pValue.Callback = C.dgo__pGoFinalizer
 	default:
 		panic(fmt.Sprintf("dgo:go cannot convert %#[1]v to Dart_CObject", x))
 	}
