@@ -1,4 +1,4 @@
-package internal
+package exception
 
 import (
 	"fmt"
@@ -18,7 +18,7 @@ type hasPos interface {
 	Pos() token.Pos
 }
 
-func throwAt(pkg *packages.Package, obj hasPos, args ...any) {
+func ThrowAt(pkg *packages.Package, obj hasPos, args ...any) {
 	text := fmt.Sprintf(args[0].(string), args[1:]...)
 	Throw("%s: %s", pkg.Fset.Position(obj.Pos()), text)
 }

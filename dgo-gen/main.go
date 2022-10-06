@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/hsfzxjy/dgo/dgo-gen/internal"
+	"github.com/hsfzxjy/dgo/dgo-gen/internal/exception"
 	"github.com/jessevdk/go-flags"
 )
 
@@ -16,8 +17,7 @@ var config Config
 func main() {
 	parser := flags.NewParser(&config, flags.HelpFlag|flags.PassDoubleDash)
 	_, err := parser.Parse()
-	internal.Die(err)
-	pkgs := internal.LoadPackages(config.PackageName.Value)
-	ex := internal.ParsePackages(pkgs)
-	ex.Dump()
+	exception.Die(err)
+	exports := internal.NewExports(config.PackageName.Value)
+	exports.Dump()
 }

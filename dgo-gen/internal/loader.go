@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/hsfzxjy/dgo/dgo-gen/internal/exception"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -13,13 +14,12 @@ func printErrors(pkgs []*packages.Package) int {
 	packages.Visit(pkgs, nil, func(p *packages.Package) {
 		for _, err := range p.Errors {
 			isCgoError := strings.Contains(err.Msg, `import C`)
-			suffix := ""
 			if isCgoError {
-				suffix = " (IGNORED)"
+				continue
 			} else {
 				n++
 			}
-			fmt.Fprintf(os.Stderr, "%s%s\n", err, suffix)
+			fmt.Fprintf(os.Stderr, "%s\n", err)
 		}
 	})
 	return n
@@ -29,9 +29,9 @@ func LoadPackages(pattern string) []*packages.Package {
 	pkgs, err := packages.Load(&packages.Config{
 		Mode: packages.NeedName | packages.NeedFiles | packages.NeedImports | packages.NeedDeps | packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo | packages.NeedModule,
 	}, pattern)
-	Die(err)
+	exception.Die(err)
 	if printErrors(pkgs) > 0 {
-		Exit()
+		exception.Exit()
 	}
 	return pkgs
 }
