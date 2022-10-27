@@ -1,27 +1,26 @@
 package uri
 
 import (
-	"fmt"
-	"go/types"
 	"strings"
+
+	"golang.org/x/tools/go/packages"
 )
 
 type Uri string
 
-func UriFor(obj *types.TypeName) Uri {
-	return NewUri(obj.Pkg().Path(), obj.Name())
-}
-
-func NewUri(pkgPath, name string) Uri {
-	return Uri(fmt.Sprintf("%s#%s", pkgPath, name))
+func UriFor(pkg *packages.Package, name string) Uri {
+	modPath := pkg.Module.Path
+	pkgPath := strings.TrimPrefix(pkg.PkgPath, modPath)
+	pkgPath = strings.TrimLeft(pkgPath, "/")
+	return Uri(strings.Join([]string{modPath, pkgPath, name}, "#"))
 }
 
 func (uri Uri) IsWithPackagePath(pkgPath string) bool {
-	pos := strings.IndexByte(string(uri), '#')
+	pos := strings.LastIndexByte(string(uri), '#')
 	return uri[:pos] == Uri(pkgPath)
 }
 
 func (uri Uri) IsSamePackage(other Uri) bool {
-	pos2 := strings.IndexByte(string(uri), '#')
+	pos2 := strings.LastIndexByte(string(uri), '#')
 	return uri.IsWithPackagePath(string(other[:pos2]))
 }

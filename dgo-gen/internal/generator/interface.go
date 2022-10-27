@@ -1,10 +1,10 @@
-package dumper
+package generator
 
 import (
 	"github.com/hsfzxjy/dgo/dgo-gen/internal/exported"
 )
 
-type Dumper interface {
+type Interface interface {
 	AddType(*exported.Type)
 	Save()
 }

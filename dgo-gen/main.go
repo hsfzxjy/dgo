@@ -4,6 +4,9 @@ import (
 	"github.com/hsfzxjy/dgo/dgo-gen/internal"
 	"github.com/hsfzxjy/dgo/dgo-gen/internal/exception"
 	"github.com/jessevdk/go-flags"
+
+	// retain spew as dependency, which is somehow useful for debugging
+	_ "github.com/davecgh/go-spew/spew"
 )
 
 type Config struct {

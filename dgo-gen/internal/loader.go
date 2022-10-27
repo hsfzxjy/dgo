@@ -31,7 +31,7 @@ func LoadPackages(pattern string) []*packages.Package {
 	}, pattern)
 	exception.Die(err)
 	if printErrors(pkgs) > 0 {
-		exception.Exit()
+		// TODO
 	}
 	return pkgs
 }
