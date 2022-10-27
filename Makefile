@@ -50,3 +50,8 @@ tidy:
 	cd ../dgo-gen-dart/
 	dart pub run import_sorter:main
 	dart fix --apply
+
+.PHONY: test_gen
+test_gen:
+	go run github.com/hsfzxjy/dgo/dgo-gen github.com/hsfzxjy/dgo/tests/gen_tests/...
+	cd dgo-gen-dart && dart run
