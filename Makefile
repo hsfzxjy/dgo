@@ -40,6 +40,13 @@ tidy:
 	cd go
 	go mod tidy
 
+	cd ../dgo-gen/
+	go mod tidy
+
 	cd ../dart/
+	dart pub run import_sorter:main
+	dart fix --apply
+
+	cd ../dgo-gen-dart/
 	dart pub run import_sorter:main
 	dart fix --apply
