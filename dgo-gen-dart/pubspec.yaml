@@ -1,0 +1,16 @@
+name: dgo_gen_dart
+description: Dart code generator for dgo.
+version: 0.1.0
+
+environment:
+  sdk: ">=2.18.2 <3.0.0"
+
+dev_dependencies:
+  lints: ^2.0.0
+  test: ^1.16.0
+  import_sorter: ^4.6.0
+
+dependencies:
+  dart_style: ^2.2.4
+  meta: ^1.8.0
+  path: ^1.8.2
