@@ -3,9 +3,10 @@ package main
 // #include <stdint.h>
 import "C"
 import (
-	"dgo"
 	"errors"
 	"fmt"
+
+	dgo "github.com/hsfzxjy/dgo/go"
 )
 
 func main() {}
