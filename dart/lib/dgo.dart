@@ -18,6 +18,7 @@ part 'dylib.dart';
 part 'callback_flag.dart';
 part 'dart_callback.dart';
 part 'go_callback.dart';
+part 'serialize.dart';
 
 class Dgo {
   static void init(DynamicLibrary dylib) => _init(dylib);
