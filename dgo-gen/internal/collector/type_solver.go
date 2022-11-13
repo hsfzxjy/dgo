@@ -10,6 +10,14 @@ import (
 	"github.com/hsfzxjy/dgo/dgo-gen/internal/uri"
 )
 
+func (ctx *Context) SolveType(obj types.Object) ir.Term {
+	solver := NewTypeSolver(ctx)
+	solver.Do(obj)
+	term := solver.Result
+	ir.FillAllSize(term)
+	return term
+}
+
 type termLayerKind int
 
 const (

@@ -27,8 +27,6 @@ func (t *Type) Uri() uri.Uri {
 	return uri.UriFor(t.PPackage, t.Name())
 }
 
-func (ex *Type) Resolve() {
-	tr := collector.NewTypeSolver(ex.Context)
-	tr.Do(ex)
-	ex.Term = tr.Result
+func (t *Type) Resolve() {
+	t.Term = t.SolveType(t)
 }

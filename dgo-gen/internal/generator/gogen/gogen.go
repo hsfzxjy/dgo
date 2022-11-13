@@ -1,6 +1,7 @@
 package gogen
 
 import (
+	"fmt"
 	"go/types"
 	"path"
 	"strings"
@@ -86,13 +87,26 @@ func loadIntoString(src, idx, dst Code) *Statement {
 		Op("*").Add(dst).Op("=").String().Parens(Id("byteSlice")))
 }
 
+func loadIntoInt(src, idx, dst, dstType Code) *Statement {
+	return If(Id("arr").Index(Id("_index_")).Dot("Type").
+		Op("==").
+		Qual(dgoMod, "Dart_CObject_kInt32")).
+		BlockFunc(func(g *Group) {
+			g.Add(loadIntoBasic(src, idx, Qual("C", "int32_t"), dst, dstType))
+		}).
+		Else().
+		BlockFunc(func(g *Group) {
+			g.Add(loadIntoBasic(src, idx, Qual("C", "int64_t"), dst, dstType))
+		})
+}
+
 func loadBasic(t *ir.Basic, g *Group) {
 	info := t.TypeInfo
 	switch {
 	case info&types.IsBoolean != 0:
 		g.Add(loadIntoBasic(Id("arr"), Id("_index_"), Qual("C", "bool"), Id("o"), Id("bool")))
 	case info&types.IsInteger != 0:
-		g.Add(loadIntoBasic(Id("arr"), Id("_index_"), Qual("C", "int64_t"), Id("o"), Id(t.TypeName)))
+		g.Add(loadIntoInt(Id("arr"), Id("_index_"), Id("o"), Id(t.TypeName)))
 	case info&types.IsFloat != 0:
 		g.Add(loadIntoBasic(Id("arr"), Id("_index_"), Qual("C", "double"), Id("o"), Id(t.TypeName)))
 	case info&types.IsString != 0:
@@ -126,10 +140,11 @@ SWITCH:
 		goto SWITCH
 	case *ir.Coerce:
 		g.Id("_index_").
-			Op("+=").
+			Op("=").
 			Id("o").Dot("DgoLoad").
 			Call(
-				Id("arr").Index(Id("_index_"), Empty()))
+				Id("arr"),
+				Id("_index_"))
 	case *ir.Basic:
 		if t.Ident != nil {
 			g.BlockFunc(func(g *Group) {
@@ -223,13 +238,17 @@ func storeFromString(g *Group) {
 			Id("header").Dot("Data"))
 }
 
+func storeFromInt(g *Group) {
+	storeFromBasic(g, Qual(dgoMod, "Dart_CObject_kInt64"), Qual("C", "int64_t"))
+}
+
 func storeBasic(t *ir.Basic, g *Group) {
 	info := t.TypeInfo
 	switch {
 	case info&types.IsBoolean != 0:
 		storeFromBasic(g, Qual(dgoMod, "Dart_CObject_kBool"), Qual("C", "bool"))
 	case info&types.IsInteger != 0:
-		storeFromBasic(g, Qual(dgoMod, "Dart_CObject_kInt64"), Qual("C", "int64_t"))
+		storeFromInt(g)
 	case info&types.IsFloat != 0:
 		storeFromBasic(g, Qual(dgoMod, "Dart_CObject_kDouble"), Qual("C", "double"))
 	case info&types.IsString != 0:
@@ -262,7 +281,7 @@ SWITCH:
 			Op("=").
 			Id("o").Dot("DgoStore").
 			Call(
-				Id("arr"),
+				Id("arr").Index(Empty(), Empty()),
 				Id("_index_"),
 				Id("keepAlive"))
 	case *ir.Basic:
@@ -328,10 +347,10 @@ func (d *Generator) buildFunctionsForType(etype *exported.Type, file *File) {
 		Params(Id("o").Op("*").Id(name)).
 		Id("DgoLoad").
 		Params(
-			Id("arr").Index().Op("*").Qual(dgoMod, "Dart_CObject")).
+			Id("arr").Index().Op("*").Qual(dgoMod, "Dart_CObject"),
+			Id("_index_").Int()).
 		Id("int").
 		BlockFunc(func(g *Group) {
-			g.Id("_index_").Op(":=").Lit(0)
 			buildFunction_DgoLoad(etype, etype.Term, g, new(looper))
 			g.Return(Id("_index_"))
 		}).
@@ -351,6 +370,143 @@ func (d *Generator) buildFunctionsForType(etype *exported.Type, file *File) {
 			g.Id("_").Op("=").Id("cobj")
 			g.Return(Id("_index_"))
 		}).Line()
+
+	for _, method := range etype.Methods {
+		implName := fmt.Sprintf("dgo_impl_%s_%s", etype.Name(), method.Name)
+		file.Func().
+			Id(implName).
+			Params(
+				Id("arr").Index().Op("*").Qual(dgoMod, "Dart_CObject")).
+			BlockFunc(func(g *Group) {
+				g.Var().Id("cobj").Op("*").Qual(dgoMod, "Dart_CObject")
+				g.Id("_index_").Op(":=").Lit(0)
+				g.Var().Id("o").Id(etype.Name())
+				g.Id("_index_").
+					Op("=").
+					Id("o").Dot("DgoLoad").
+					Call(
+						Id("arr"),
+						Id("_index_"))
+
+				for paramId, param := range method.Params {
+					paramName := fmt.Sprintf("arg%d", paramId)
+					g.Var().Id(paramName).Add(typeNameOf(etype, param.Term))
+					g.BlockFunc(func(g *Group) {
+						g.Id("o").Op(":=").Op("&").Id(paramName)
+						buildFunction_DgoLoad(etype, param.Term, g, &looper{})
+					})
+				}
+
+				g.Var().Id("callback").Uint64()
+				g.Add(loadIntoInt(Id("arr"), Id("_index_"), Op("&").Id("callback"), Uint64()))
+				g.Id("callback").Op("|=").Uint64().Call(Qual(dgoMod, "CF_POP"))
+
+				var resultReceiver *Statement = Empty()
+				if method.Return != nil {
+					if method.ReturnError {
+						resultReceiver = List(Id("result"), Id("err"))
+					} else {
+						resultReceiver = Id("result")
+					}
+					resultReceiver = resultReceiver.Op(":=")
+				}
+
+				g.Add(resultReceiver).Id("o").Dot(method.Name).
+					CallFunc(func(g *Group) {
+						for paramId := range method.Params {
+							paramName := fmt.Sprintf("arg%d", paramId)
+							g.Id(paramName)
+						}
+					})
+
+				g.Var().Id("keepAliveArr").Index().Any()
+				g.Id("keepAlive").Op(":=").Op("&").Id("keepAliveArr")
+				g.Id("_index_").Op("=").Lit(0)
+				g.BlockFunc(func(g *Group) {
+					if method.Return == nil {
+						g.Var().Id("arr").Index(Lit(1)).Qual(dgoMod, "Dart_CObject")
+						g.Id("o").Op(":=").Op("&").Id("callback")
+						storeFromInt(g)
+						g.Id("_index_").Op("++")
+					} else if !method.ReturnError {
+						g.Var().Id("arr").Index(Lit(1+ir.DartSizeof(method.Return))).Qual(dgoMod, "Dart_CObject")
+						g.BlockFunc(func(g *Group) {
+							g.Id("o").Op(":=").Op("&").Id("callback")
+							storeFromInt(g)
+							g.Id("_index_").Op("++")
+						})
+						g.BlockFunc(func(g *Group) {
+							g.Id("o").Op(":=").Op("&").Id("result")
+							buildFunction_DgoStore(etype, method.Return, g, &looper{})
+						})
+					} else {
+						g.Var().Id("arr").Index(Lit(2+ir.DartSizeof(method.Return))).Qual(dgoMod, "Dart_CObject")
+						g.If(Id("err").Op("!=").Nil()).Block(
+							Id("callback").Op("|=").Uint64().Call(Id("cf_fut_reject")),
+						)
+						g.BlockFunc(func(g *Group) {
+							g.Id("o").Op(":=").Op("&").Id("callback")
+							storeFromInt(g)
+							g.Id("_index_").Op("++")
+						})
+						g.If(Id("err").Op("!=").Nil()).BlockFunc(func(g *Group) {
+							g.Id("errString").Op(":=").Id("err").Dot("Error").Call()
+							g.Id("o").Op(":=").Op("&").Id("errString")
+							storeFromString(g)
+							g.Id("_index_").Op("++")
+						}).Else().BlockFunc(func(g *Group) {
+							g.Id("o").Op(":=").Op("&").Id("result")
+							buildFunction_DgoStore(etype, method.Return, g, &looper{})
+						})
+					}
+					g.Id("dgoPostCObjects").Call(
+						Id("_index_"),
+						Op("&").Id("arr").Index(Lit(0)),
+					)
+					g.Qual("runtime", "KeepAlive").Call(Id("keepAlive"))
+				})
+
+			}).
+			Line().
+			Line().
+			Func().Id("init").
+			Params().
+			Block(
+				Id("dgoMethodCallRegister").
+					Call(
+						Qual(dgoMod, "MethodCallId").
+							Call(Lit(method.FuncId)),
+						Id(implName))).
+			Line()
+	}
+}
+
+func (d *Generator) buildStub(dstDir string, pkgName string) {
+	dstPath := path.Join(dstDir, "stub.dgo._.go")
+	if _, ok := d.files[dstPath]; ok {
+		return
+	}
+	file := NewFile(pkgName)
+	d.files[dstPath] = file
+	file.ImportAlias(dgoMod, "dgo")
+	file.
+		Comment("//go:linkname dgoMethodCallRegister github.com/hsfzxjy/dgo/go.registerMethodCall").
+		Line().
+		Func().Id("dgoMethodCallRegister").
+		Params(
+			Qual(dgoMod, "MethodCallId"),
+			Qual(dgoMod, "MethodCallImplFunc")).
+		Line().
+		Line().
+		Comment("//go:linkname dgoPostCObjects github.com/hsfzxjy/dgo/go.dgo__PostCObjects").
+		Line().
+		Func().Id("dgoPostCObjects").
+		Params(Int(), Op("*").Qual(dgoMod, "Dart_CObject")).
+		Line().
+		Line().
+		Var().Id("_").Qual("unsafe", "Pointer").
+		Line().
+		Var().Id("cf_fut_reject").Op("=").Qual(dgoMod, "CF_CUSTOM").Call(Lit(7))
 }
 
 func (d *Generator) AddType(etype *exported.Type) {
@@ -368,6 +524,8 @@ func (d *Generator) AddType(etype *exported.Type) {
 			file.CgoPreamble(cgoPreamble)
 
 			d.files[dstPath] = file
+
+			d.buildStub(dstDir, etype.PPackage.Name)
 		}
 	}
 	d.buildFunctionsForType(etype, file)

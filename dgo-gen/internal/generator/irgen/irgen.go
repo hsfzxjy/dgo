@@ -11,7 +11,8 @@ import (
 
 type Entry struct {
 	ir.Term
-	TypeId int64
+	TypeId  int64
+	Methods []exported.TypeMethod
 }
 
 type Generator struct {
@@ -23,7 +24,7 @@ func (d *Generator) AddType(etype *exported.Type) {
 		d.m = make(map[uri.Uri]Entry)
 	}
 	uri := etype.Uri()
-	d.m[uri] = Entry{etype.Term, etype.TypeId}
+	d.m[uri] = Entry{etype.Term, etype.TypeId, etype.Methods}
 }
 
 func (d *Generator) Save() {

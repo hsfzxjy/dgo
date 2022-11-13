@@ -40,6 +40,7 @@ func NewPackage(ppkg *packages.Package, ctx *collector.Context, isDep bool) *Pac
 				Name:            funcName,
 				ReceiverName:    recvName,
 				ReceiverPointer: recvPointer,
+				FuncId:          ctx.NextMethodId(),
 			})
 		},
 	)
@@ -51,6 +52,11 @@ func (epkg *Package) Resolve() {
 	for _, etyp := range epkg.Types {
 		etyp.Resolve()
 	}
+
+	for _, efunc := range epkg.Funcs {
+		efunc.Resolve()
+	}
+	epkg.Funcs = nil
 }
 
 func (epkg *Package) HasType(name string) bool {

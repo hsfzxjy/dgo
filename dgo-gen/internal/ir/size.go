@@ -60,3 +60,8 @@ func DartSizeof(t Term) int {
 	})
 	return header.DartSize
 }
+
+func FillAllSize(t Term) {
+	GoSizeof(t)
+	DartSizeof(t)
+}
