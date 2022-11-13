@@ -23,6 +23,8 @@ const (
 
 	cf_fut_reject  CallbackFlag = 0 << (cfBitsStart + 7)
 	cf_fut_resolve CallbackFlag = 1 << (cfBitsStart + 7)
+
+	cf_method_call CallbackFlag = 1 << (cfBitsStart + 8)
 )
 
 // 8 <= n <= 15
@@ -67,6 +69,8 @@ func (cf CallbackFlag) FastKind() CFFastKind {
 
 func (cf CallbackFlag) Fallible() CallbackFlag { return cf | CF_FALLIBLE }
 func (cf CallbackFlag) HasFallible() bool      { return cf&CF_FALLIBLE != 0 }
+
+func (cf CallbackFlag) hasMethodCall() bool { return cf&cf_method_call != 0 }
 
 type CFFastKind int
 

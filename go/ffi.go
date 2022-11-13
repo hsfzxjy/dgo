@@ -31,6 +31,10 @@ const (
 	Dart_CObject_kTypedData = C.Dart_CObject_kTypedData
 )
 
+func dgo__PostCObjects(arg0 int, arg1 *C.Dart_CObject) bool {
+	return bool(C.dgo__PostCObjects(C.int(arg0), arg1))
+}
+
 //export dgo__GoFinalizer
 func dgo__GoFinalizer(callback_data C.uintptr_t, peer C.uintptr_t) {
 	handle := cgo.Handle(peer)
@@ -40,17 +44,14 @@ func dgo__GoFinalizer(callback_data C.uintptr_t, peer C.uintptr_t) {
 
 //export dgo__HandleNativeMessage
 func dgo__HandleNativeMessage(port C.Dart_Port_DL, msg *Dart_CObject) {
-	objs := cobjectUnpack(msg)
-	if len(objs) == 0 {
-		panic("dgo:go empty cobject array")
+	first := cobjectUnpackFirst(msg)
+	if CallbackFlag(first).hasMethodCall() {
+		methodCallInvoke(first, msg)
+		return
 	}
-	var gcb GoCallback
-	if first, ok := objs[0].(int64); !ok {
-		panic("dgo:go expect 1-st argument to be int")
-	} else {
-		gcb = GoCallback(first)
-	}
-	gcb.handle(objs[1:])
+	objs := cobjectUnpackRest(msg)
+	gcb := GoCallback(first)
+	gcb.handle(objs)
 }
 
 func (dcb CallableDartCallback) Call(args ...any) bool {
@@ -80,15 +81,34 @@ func (dcb CallableDartCallback) Call(args ...any) bool {
 
 const MAX_ARRAY_LEN = 1<<30 - 1
 
-func cobjectUnpack(cobjArr *Dart_CObject) []any {
+func cobjectUnpackFirst(cobj *Dart_CObject) uint64 {
+BEGIN:
+	pValue := unsafe.Pointer(&cobj.Value)
+	switch cobj.Type {
+	case C.Dart_CObject_kArray:
+		pArr := (*C.dgo__Dart_CObject_AsArray)(pValue)
+		if pArr.Length == 0 {
+			panic("dgo:go empty cobject array")
+		}
+		pCobjs := (*[MAX_ARRAY_LEN]*Dart_CObject)(unsafe.Pointer(pArr.Values))
+		cobj = pCobjs[0]
+		goto BEGIN
+	case C.Dart_CObject_kInt32:
+		return uint64(*(*C.int32_t)(pValue))
+	case C.Dart_CObject_kInt64:
+		return uint64(*(*C.int64_t)(pValue))
+	default:
+		panic(fmt.Sprintf("dgo:go expect first argument to be int, got kind=%d", cobj.Type))
+	}
+}
+
+func cobjectUnpackRest(cobjArr *Dart_CObject) []any {
 	pValue := unsafe.Pointer(&cobjArr.Value)
 	switch cobjArr.Type {
 	case C.Dart_CObject_kArray:
 		break
-	case C.Dart_CObject_kInt32:
-		return []any{int64(*(*C.int32_t)(pValue))}
-	case C.Dart_CObject_kInt64:
-		return []any{int64(*(*C.int64_t)(pValue))}
+	case C.Dart_CObject_kInt32, C.Dart_CObject_kInt64:
+		return nil
 	default:
 		panic(fmt.Sprintf("dgo:go expect cobject with kArray, got kind=%d", cobjArr.Type))
 	}
@@ -97,8 +117,8 @@ func cobjectUnpack(cobjArr *Dart_CObject) []any {
 	length := pArr.Length
 	pCobjs := (*[MAX_ARRAY_LEN]*C.Dart_CObject)(unsafe.Pointer(pArr.Values))
 
-	rets := make([]any, length)
-	for i, cobj := range pCobjs[:length] {
+	rets := make([]any, length-1)
+	for i, cobj := range pCobjs[1:length] {
 		rets[i] = cobjectAs(cobj)
 	}
 
