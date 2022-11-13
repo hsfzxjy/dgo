@@ -27,3 +27,15 @@ class CallableGoCallback {
     }
   }
 }
+
+@immutable
+class GoMethod {
+  final int funcId;
+
+  const GoMethod(this.funcId);
+
+  void call(List args, int n, int cb) {
+    final id = funcId | _cfMethodCall;
+    _sendPort!.send([id, ...args, cb]);
+  }
+}

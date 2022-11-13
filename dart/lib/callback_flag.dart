@@ -63,6 +63,8 @@ const _cfFutReject = 0 << (_cfBitsStart + 7);
 // ignore:unused_element
 const _cfFutResolve = 1 << (_cfBitsStart + 7);
 
+const _cfMethodCall = 1 << (_cfBitsStart + 8);
+
 @immutable
 class CallbackFlag {
   final int _internal;
