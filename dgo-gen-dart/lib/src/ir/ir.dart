@@ -12,3 +12,4 @@ import '../uri.dart';
 
 part 'builder.dart';
 part 'ops.dart';
+part 'method.dart';

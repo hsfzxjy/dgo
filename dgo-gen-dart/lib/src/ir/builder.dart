@@ -25,3 +25,5 @@ IR _buildIR(JsonMap m) {
   }
   return builder(m);
 }
+
+IR? _buildIRNull(JsonMap? m) => m == null ? null : _buildIR(m);

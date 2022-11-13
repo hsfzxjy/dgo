@@ -35,46 +35,49 @@ class Generator {
       ..writeln('class $entryName {')
       ..writeln('static const typeId = $typeId;');
 
-    if (ir is OpStruct) {
-      for (final field in ir.fields.values) {
-        file.writeln(
-            '''final ${field.term.dartType(file.importer)} ${field.name};''');
-      }
-      file
+    file.if_(
+      ir is OpStruct,
+      () => file
+        ..for_(
+            (ir as OpStruct).fields.values,
+            (field) => file.writeln(
+                '''final ${field.term.dartType(file.importer)} ${field.name};'''))
         ..write('const $entryName(')
         ..writeln(
             ir.fields.values.map((field) => 'this.${field.name}').join(','))
-        ..writeln(');');
-    } else {
-      file
+        ..writeln(');'),
+      () => file
         ..writeln('final ${ir.dartType(file.importer)} \$inner;')
-        ..writeln('const $entryName(this.\$inner);');
-    }
+        ..writeln('const $entryName(this.\$inner);'),
+    );
 
     var ctx = file.asGeneratorContext().withSymbols(
-        {vArgs: 'args', vIndex: 'startIndex', vHolder: 'instance'});
+        {vArgs: '\$args', vIndex: '\$startIndex', vHolder: '\$instance'});
     file
       ..writeln()
       ..writeln(
-          'static DgoTypeLoadResult<$entryName> \$dgoLoad(List<dynamic> args, int startIndex){')
-      ..writeln('${ir.dartType(file.importer)} instance;')
+          'static DgoTypeLoadResult<$entryName> \$dgoLoad(List<dynamic> ${ctx[vArgs]}, int ${ctx[vIndex]}){')
+      ..writeln('${ir.dartType(file.importer)} ${ctx[vHolder]};')
       ..pipe(ir.writeSnippet$dgoLoad(ctx))
-      ..pipe(() {
-        if (ir is OpStruct) {
-          file.writeln('return DgoTypeLoadResult(startIndex, instance);');
-        } else {
-          file.writeln(
-              'return DgoTypeLoadResult(startIndex, $entryName(instance));');
-        }
-      }())
+      ..if_(
+        ir is OpStruct,
+        () => file.writeln(
+            'return DgoTypeLoadResult(${ctx[vIndex]}, ${ctx[vHolder]});'),
+        () => file.writeln(
+            'return DgoTypeLoadResult(${ctx[vIndex]}, $entryName(${ctx[vHolder]}));'),
+      )
       ..writeln('}');
+
+    for (final methodSpec in entry['Methods'] ?? []) {
+      Method.fromMap(ir, methodSpec).writeSnippet(ctx);
+    }
 
     file
       ..writeln()
-      ..writeln('int \$dgoStore(List<dynamic> args, int startIndex) {')
-      ..writeln('final instance = this;')
+      ..writeln('int \$dgoStore(List<dynamic> ${ctx[vArgs]}, int ${ctx[vIndex]}) {')
+      ..writeln('final ${ctx[vHolder]} = this;')
       ..pipe(ir.writeSnippet$dgoStore(ctx))
-      ..writeln('return startIndex;')
+      ..writeln('return ${ctx[vIndex]};')
       ..writeln('}');
 
     file.writeln('}');

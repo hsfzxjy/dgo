@@ -11,6 +11,7 @@ class File extends StringBuffer {
         super() {
     importer.import3Party('package:meta/meta.dart');
     importer.import3Party('package:dgo/dgo.dart');
+    importer.import3Party('dart:async');
   }
 
   void save(String destDir) {

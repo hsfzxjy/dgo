@@ -14,7 +14,11 @@ extension on JsonMap {
 }
 
 abstract class IR {
-  IR();
+  final int dartSize;
+  final int goSize;
+  IR(JsonMap m)
+      : dartSize = m['DartSize'],
+        goSize = m['GoSize'];
   factory IR.fromJSON(Map m) => _buildIR(m as JsonMap);
   String dartType(Importer context);
 
@@ -24,7 +28,9 @@ abstract class IR {
 
 abstract class Namable extends IR {
   final EntryUri? myUri;
-  Namable(this.myUri);
+  Namable(JsonMap m)
+      : myUri = m.myUri,
+        super(m);
 }
 
 extension on Namable {
@@ -43,7 +49,7 @@ class OpArray extends Namable {
   OpArray.fromMap(JsonMap m)
       : len = m['Len'],
         elem = m.getIR('Elem'),
-        super(m.myUri);
+        super(m);
 
   @override
   String dartType(Importer context) => 'List<${elem.dartType(context)}>';
@@ -62,7 +68,7 @@ class OpArray extends Namable {
   void writeSnippet$dgoStore(GeneratorContext ctx) {
     ctx.buffer
       ..writeln('for (var i=0;i<$len;i++){')
-      ..writeln("final \$element = ${ctx[vHolder]}$_snippetQualifier[i];")
+      ..writeln('final \$element = ${ctx[vHolder]}$_snippetQualifier[i];')
       ..pipe(elem.writeSnippet$dgoStore(ctx.withSymbol(vHolder, '\$element')))
       ..writeln('}');
   }
@@ -94,7 +100,7 @@ class OpBasic extends Namable {
 
   OpBasic.fromMap(JsonMap m)
       : typeName = m['TypeName'],
-        super(m.myUri);
+        super(m);
 
   @override
   void writeSnippet$dgoLoad(GeneratorContext ctx) {
@@ -116,7 +122,9 @@ class OpBasic extends Namable {
 class OpCoerce extends IR {
   final EntryUri ident;
 
-  OpCoerce.fromMap(JsonMap m) : ident = EntryUri.fromString(m['Target']['Uri']);
+  OpCoerce.fromMap(JsonMap m)
+      : ident = EntryUri.fromString(m['Target']['Uri']),
+        super(m);
 
   @override
   String dartType(Importer context) => context.qualifyUri(ident);
@@ -145,7 +153,7 @@ class OpPtrTo extends Namable {
 
   OpPtrTo.fromMap(JsonMap m)
       : elem = m.getIR('Elem'),
-        super(m.myUri);
+        super(m);
 
   @override
   String dartType(Importer context) => elem.dartType(context);
@@ -174,7 +182,8 @@ class OpField extends IR {
         term = m.getIR('Term'),
         renameInDart = m['RenameInDart'],
         sendToDart = m['SendToDart'],
-        sendBackToGo = m['SendBackToGo'];
+        sendBackToGo = m['SendBackToGo'],
+        super(m);
 
   @override
   String dartType(Importer context) => term.dartType(context);
@@ -196,7 +205,7 @@ class OpStruct extends Namable {
       : fields = LinkedHashMap.fromEntries((m['Fields'] as List)
             .map((e) => MapEntry(e['Name'] as String, _buildIR(e) as OpField))
             .where((entry) => entry.value.sendToDart)),
-        super(m.myUri);
+        super(m);
 
   @override
   String dartType(Importer context) {
@@ -241,7 +250,9 @@ class OpStruct extends Namable {
 class OpOptional extends IR {
   final IR term;
 
-  OpOptional.fromMap(JsonMap m) : term = m.getIR('Term');
+  OpOptional.fromMap(JsonMap m)
+      : term = m.getIR('Term'),
+        super(m);
 
   @override
   String dartType(Importer context) => '${term.dartType(context)}?';

@@ -399,7 +399,7 @@ func (d *Generator) buildFunctionsForType(etype *exported.Type, file *File) {
 
 				g.Var().Id("callback").Uint64()
 				g.Add(loadIntoInt(Id("arr"), Id("_index_"), Op("&").Id("callback"), Uint64()))
-				g.Id("callback").Op("|=").Uint64().Call(Qual(dgoMod, "CF_POP"))
+				g.Id("callback").Op("|=").Uint64().Call(Qual(dgoMod, "CF_POP").Op("|").Qual(dgoMod, "CF_PACKARRAY"))
 
 				var resultReceiver *Statement = Empty()
 				if method.Return != nil {
