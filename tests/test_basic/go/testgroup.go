@@ -22,3 +22,5 @@ func (g *testgroup) exhausted() int {
 		return 0
 	}
 }
+
+func (g *testgroup) reset() { g.index = 0 }

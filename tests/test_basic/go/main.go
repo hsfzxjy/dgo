@@ -1,10 +1,11 @@
 package main
 
 // #include <stdint.h>
+// #include <stdbool.h>
 import "C"
 import (
 	"errors"
-	"fmt"
+	"log"
 
 	dgo "github.com/hsfzxjy/dgo/go"
 )
@@ -13,9 +14,9 @@ func main() {}
 
 func assertEqual(tcase Equalable, other any) {
 	if !tcase.Equals(other) {
-		panic(fmt.Sprintf("%[1]T %#[1]v != %[2]T %#[2]v", tcase, other))
+		log.Panicf("%[1]T %#[1]v != %[2]T %#[2]v", tcase, other)
 	} else {
-		fmt.Printf("Test Passed: %[1]T %#[1]v\n", tcase)
+		log.Printf("Test Passed: %[1]T %#[1]v\n", tcase)
 	}
 }
 func resolveCase[T ~uint32](token T) {
@@ -23,21 +24,33 @@ func resolveCase[T ~uint32](token T) {
 }
 
 func makeComparator[T Equalable](token uint32, x T) dgo.GoCallback {
-	return dgo.PendGo(func(t any) {
+	return dgo.Pend(func(t any) {
 		if !x.Equals(t) {
-			panic(fmt.Sprintf("%[1]T %#[1]v != %[2]T %#[2]v", x, t))
+			log.Panicf("%[1]T %#[1]v != %[2]T %#[2]v", x, t)
 		} else {
-			fmt.Printf("Test Passed: %[1]T %#[1]v\n", x)
+			log.Printf("Test Passed: %[1]T %#[1]v\n", x)
 		}
 		resolveCallback.Flag(dgo.CF).Call(token)
-	})
+	}, nil)
 }
 
 var resolveCallback dgo.DartCallback
+var currentPort *dgo.Port
+var currentPort2 *dgo.Port
 
-//export SetResolveCallback
-func SetResolveCallback(cdcb C.uint32_t) {
-	resolveCallback = dgo.WrapDartCallback(cdcb)
+//go:linkname lookupPort github.com/hsfzxjy/dgo/go.lookupPort
+func lookupPort(key dgo.PortKey) *dgo.Port
+
+//export InitTestContext
+func InitTestContext(cdcb C.uint32_t, portKey C.int64_t, isDefault C.bool) {
+	currentPort2 = lookupPort(dgo.PortKey(portKey))
+	currentPort = currentPort2
+	if isDefault {
+		currentPort = nil
+	}
+	resolveCallback = dgo.WrapDartCallback(cdcb, currentPort)
+	groupSingle.reset()
+	groupTuple.reset()
 }
 
 var sampleByteSlice = []byte("This is a slice")
@@ -63,13 +76,13 @@ var groupSingle = group([]Equalable{
 
 //export TestSingle
 func TestSingle(cdcb C.uint32_t) int {
-	dcb := dgo.WrapDartCallback(cdcb)
+	dcb := dgo.WrapDartCallback(cdcb, currentPort)
 
 	tcase := groupSingle.next()
-	gcb := dgo.PendGo(func(other any) {
+	gcb := dgo.Pend(func(other any) {
 		assertEqual(tcase, other)
 		resolveCase(cdcb)
-	})
+	}, currentPort)
 	tcase.SendToDart(func(a ...any) {
 		args := []any{gcb}
 		args = append(args, a...)
@@ -86,13 +99,13 @@ var groupTuple = group([]Equalable{
 
 //export TestTuple
 func TestTuple(cdcb C.uint32_t) int {
-	dcb := dgo.WrapDartCallback(cdcb)
+	dcb := dgo.WrapDartCallback(cdcb, currentPort)
 
 	tcase := groupTuple.next()
-	gcb := dgo.PendGo(func(x1, x2 any) {
+	gcb := dgo.Pend(func(x1, x2 any) {
 		assertEqual(tcase, []any{x1, x2})
 		resolveCase(cdcb)
-	})
+	}, currentPort)
 	tcase.SendToDart(func(a ...any) {
 		args := []any{gcb}
 		args = append(args, a...)
@@ -104,7 +117,7 @@ func TestTuple(cdcb C.uint32_t) int {
 
 //export TestDartPop
 func TestDartPop(cdcb C.uint32_t) int {
-	dcb := dgo.WrapDartCallback(cdcb)
+	dcb := dgo.WrapDartCallback(cdcb, currentPort)
 	dcb.Flag(dgo.CF).Call()
 	dcb.Flag(dgo.CF_POP).Call()
 	return 0
@@ -112,21 +125,21 @@ func TestDartPop(cdcb C.uint32_t) int {
 
 //export TestDartPackArray
 func TestDartPackArray(cdcb C.uint32_t) int {
-	dcb := dgo.WrapDartCallback(cdcb)
+	dcb := dgo.WrapDartCallback(cdcb, currentPort)
 	dcb.Flag(dgo.CF_POP.PackArray()).Call(1, "hello", 3.14)
 	return 0
 }
 
-//export TestDartWithCode
-func TestDartWithCode(cdcb C.uint32_t) int {
-	dcb := dgo.WrapDartCallback(cdcb)
-	dcb.Flag(dgo.CF_POP.WithCode()).Call(1, "hello", 3.14)
+//export TestDartWithContext
+func TestDartWithContext(cdcb C.uint32_t) int {
+	dcb := dgo.WrapDartCallback(cdcb, currentPort)
+	dcb.Flag(dgo.CF_POP.WithContext()).Call(1, "hello", 3.14)
 	return 0
 }
 
 //export TestDartFast
 func TestDartFast(cdcb C.uint32_t) int {
-	dcb := dgo.WrapDartCallback(cdcb)
+	dcb := dgo.WrapDartCallback(cdcb, currentPort)
 	dcb.Flag(dgo.CF_FAST_NIL).Call()
 	dcb.Flag(dgo.CF_FAST_NO).Call()
 	dcb.Flag(dgo.CF_FAST_YES.Pop()).Call()
@@ -136,7 +149,7 @@ func TestDartFast(cdcb C.uint32_t) int {
 
 //export TestDartFastVoid
 func TestDartFastVoid(cdcb C.uint32_t) int {
-	dcb := dgo.WrapDartCallback(cdcb)
+	dcb := dgo.WrapDartCallback(cdcb, currentPort)
 	dcb.Flag(dgo.CF_FAST_VOID.Pop()).Call()
 
 	return 0
@@ -144,19 +157,30 @@ func TestDartFastVoid(cdcb C.uint32_t) int {
 
 //export TestDartFallible
 func TestDartFallible(cdcb C.uint32_t) int {
-	dgo.WrapDartCallback(cdcb).Flag(dgo.CF_POP.Fallible()).Call()
+	dgo.WrapDartCallback(cdcb, currentPort).Flag(dgo.CF_POP.Fallible()).Call()
 	return 0
 }
 
 //export TestDartFutureResolve
 func TestDartFutureResolve(cdcb C.uint32_t) int {
-	dgo.WrapDartCallback(cdcb).AsFut().Resolve(42)
+	dgo.DartFutureCallback(dgo.WrapDartCallback(cdcb, currentPort)).Resolve(42)
 	return 0
 }
 
 //export TestDartFutureReject
 func TestDartFutureReject(cdcb C.uint32_t) int {
-	dgo.WrapDartCallback(cdcb).AsFut().Reject(errors.New("this is an error"))
+	dgo.DartFutureCallback(dgo.WrapDartCallback(cdcb, currentPort)).Reject(errors.New("this is an error"))
+	return 0
+}
+
+//export TestDartStream
+func TestDartStream(cdcb C.uint32_t) int {
+	dcb := dgo.DartStreamCallback(dgo.WrapDartCallback(cdcb, currentPort))
+	dcb.Add(1)
+	dcb.Add(3.14)
+	dcb.AddError(errors.New("error 1"))
+	dcb.Add("4")
+	dcb.Done()
 	return 0
 }
 
@@ -164,7 +188,7 @@ func TestDartFutureReject(cdcb C.uint32_t) int {
 func TestGoPop(cdcb C.uint32_t) int {
 	counter := 0
 	var gcb dgo.GoCallback
-	gcb = dgo.PendGo(func() {
+	gcb = dgo.Pend(func() {
 		counter++
 		if counter == 1 {
 			if !gcb.Exists() {
@@ -177,76 +201,99 @@ func TestGoPop(cdcb C.uint32_t) int {
 			}
 			resolveCase(cdcb)
 		}
-	})
-	dgo.WrapDartCallback(cdcb).Flag(dgo.CF.Pop()).Call(gcb)
+	}, currentPort)
+	dgo.WrapDartCallback(cdcb, currentPort).Flag(dgo.CF.Pop()).Call(gcb)
 	return 0
 }
 
-//export TestGoWithCode
-func TestGoWithCode(cdcb C.uint32_t) int {
-	dgo.WrapDartCallback(cdcb).
+//export TestGoWithContext
+func TestGoWithContext(cdcb C.uint32_t) int {
+	dgo.WrapDartCallback(cdcb, currentPort).
 		Flag(dgo.CF.Pop()).
-		Call(dgo.PendGo(func(cf dgo.CallbackFlag, a1 int64, a2 string, a3 float64, a4 any) {
-			if !cf.HasPop() || !cf.HasWithCode() ||
+		Call(dgo.Pend(func(context *dgo.InvokeContext, a1 int64, a2 string, a3 float64, a4 any) {
+			cf := context.Flag()
+			if !cf.HasPop() || !cf.HasWithContext() ||
 				a1 != 1 || a2 != "hello" || a3 != 3.14 || a4 != nil {
 				panic("failed")
 			}
 			resolveCase(cdcb)
-		}))
+		}, currentPort))
 	return 0
 }
 
 //export TestGoPackArray
 func TestGoPackArray(cdcb C.uint32_t) int {
-	dgo.WrapDartCallback(cdcb).
+	dgo.WrapDartCallback(cdcb, currentPort).
 		Flag(dgo.CF.Pop()).
-		Call(dgo.PendGo(func(arr []any) {
-			cf := arr[0].(dgo.CallbackFlag)
+		Call(dgo.Pend(func(arr []any) {
+			cf := arr[0].(*dgo.InvokeContext).Flag()
 			a1 := arr[1].(int64)
 			a2 := arr[2].(string)
 			a3 := arr[3].(float64)
-			if !cf.HasPop() || !cf.HasWithCode() || !cf.HasPackArray() ||
+			if !cf.HasPop() || !cf.HasWithContext() || !cf.HasPackArray() ||
 				a1 != 1 || a2 != "hello" || a3 != 3.14 {
 				panic("failed")
 			}
 			resolveCase(cdcb)
-		}))
+		}, currentPort))
 	return 0
 }
 
 //export TestGoFast
 func TestGoFast(cdcb C.uint32_t) int {
 	counter := 0
-	dgo.WrapDartCallback(cdcb).
+	dgo.WrapDartCallback(cdcb, currentPort).
 		Flag(dgo.CF.Pop()).
-		Call(dgo.PendGo(func(ans any) {
+		Call(dgo.Pend(func(ans any) {
 			if ans != []any{nil, false, true}[counter] {
-				panic(fmt.Sprintf("failed, counter = %v, ans = %v", counter, ans))
+				log.Panicf("failed, counter = %v, ans = %v", counter, ans)
 			}
 			counter++
 			if counter == 3 {
 				resolveCase(cdcb)
 			}
-		}))
+		}, currentPort))
 	return 0
 }
 
 //export TestGoFastVoid
 func TestGoFastVoid(cdcb C.uint32_t) int {
-	dgo.WrapDartCallback(cdcb).
+	dgo.WrapDartCallback(cdcb, currentPort).
 		Flag(dgo.CF.Pop()).
-		Call(dgo.PendGo(func() {
+		Call(dgo.Pend(func() {
 			resolveCase(cdcb)
-		}))
+		}, currentPort))
 	return 0
 }
 
 //export TestGoFallible
 func TestGoFallible(cdcb C.uint32_t) int {
-	gcb := dgo.PendGo(func() {})
+	gcb := dgo.Pend(func() {}, currentPort)
 	gcb.Remove()
-	dgo.WrapDartCallback(cdcb).
+	dgo.WrapDartCallback(cdcb, currentPort).
 		Flag(dgo.CF.Pop()).
 		Call(gcb)
 	return 0
+}
+
+//go:linkname isPortGone github.com/hsfzxjy/dgo/go.isPortGone
+func isPortGone(key dgo.PortKey, isDefault bool) bool
+
+//go:linkname testPostToDartPort github.com/hsfzxjy/dgo/go.testPostToDartPort
+func testPostToDartPort(port *dgo.Port) bool
+
+//go:linkname testPostToGoPort github.com/hsfzxjy/dgo/go.testPostToGoPort
+func testPostToGoPort(port *dgo.Port) bool
+
+//export TestPortClosed
+func TestPortClosed(key C.int64_t, isDefault bool) {
+	if !isPortGone(dgo.PortKey(key), isDefault) {
+		log.Panicf("port still exists, key=%d, isDefault=%v", key, isDefault)
+	}
+	if testPostToDartPort(currentPort2) {
+		panic("dart port still alive")
+	}
+	if testPostToGoPort(currentPort2) {
+		panic("go port still alive")
+	}
 }

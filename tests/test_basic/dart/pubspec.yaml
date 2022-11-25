@@ -1,0 +1,27 @@
+name: test_basic_dart
+description: "Tests for dgo's basic functionality."
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: ">=2.18.2 <3.0.0"
+
+dev_dependencies:
+  ffigen: ^7.2.2
+  import_sorter: ^4.6.0
+  lints: ^2.0.0
+  test: ^1.16.0
+dependencies:
+  logging: ^1.1.0
+  quiver: ^3.1.0
+  dgo:
+    path: ../../../dart/
+
+ffigen:
+  output: lib/binding.dart
+  name: LibTestBasic
+  headers:
+    entry-points:
+      - ../_build/libtest_basic.h
+    include-directives:
+      - ../_build/libtest_basic.h
