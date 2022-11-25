@@ -1,49 +1,36 @@
 package dgo
 
-import (
-	"sync/atomic"
-)
-
 const (
-	dartVersionBits         = 16
-	dartVersionDelta uint64 = 1 << (64 - dartVersionBits)
-	dartVersionMask  uint64 = ^uint64(0) - (dartVersionDelta - 1)
+	callbackIdBits = 32
+	callbackIdMask = (uint64(1) << 32) - 1
 )
-
-var dartVersion uint64 = 0
-
-func dartVersionInc() {
-	atomic.AddUint64(&dartVersion, dartVersionDelta)
-}
 
 type RawDartCallback interface{ ~uint32 }
 
-type DartCallback uint64
-
-func WrapDartCallback[T RawDartCallback](rcb T) DartCallback {
-	return DartCallback(atomic.LoadUint64(&dartVersion) + uint64(rcb))
+type DartCallback struct {
+	id   uint64 // Id (32 bits)
+	port *Port
 }
 
-func (dcb DartCallback) IsIllegal() bool {
-	return atomic.LoadUint64(&dartVersion) != (uint64(dcb) & dartVersionMask)
+func (dcb DartCallback) specialInt() {}
+
+func WrapDartCallback[T RawDartCallback](rcb T, port *Port) DartCallback {
+	port = portMap.ResolvePort(port)
+	return DartCallback{uint64(rcb), port}
 }
 
 func (dcb DartCallback) Flag(cf CallbackFlag) CallableDartCallback {
-	if dcb == 0 {
-		panic("dgo:go dart callback with zero value found, maybe uninitialized")
+	if dcb.port == nil {
+		panic("dgo:go: dart callback with zero value found, maybe uninitialized")
 	}
-	if dcb.IsIllegal() {
-		return illegalCallableDartCallback
-	}
-	return CallableDartCallback((uint64(dcb) & ^dartVersionMask) | uint64(cf))
+	return CallableDartCallback{uint64(cf) | dcb.id, dcb.port}
 }
 
-type CallableDartCallback uint64
-
-func (dcb CallableDartCallback) IsIllegal() bool {
-	return dcb == illegalCallableDartCallback
+type CallableDartCallback struct {
+	payload uint64 // Flag (16 bits) | Id (32 bits)
+	port    *Port
 }
 
-const (
-	illegalCallableDartCallback = ^CallableDartCallback(0)
-)
+func (dcb CallableDartCallback) specialInt()              {}
+func (dcb CallableDartCallback) getPayload() uint64       { return dcb.payload }
+func (dcb CallableDartCallback) getKind() _SpecialIntKind { return sikDartCallback }

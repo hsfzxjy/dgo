@@ -1,7 +1,5 @@
 package dgo
 
-import "unsafe"
-
 type MethodCallImplFunc func([]*Dart_CObject)
 
 type MethodCallId uint32
@@ -13,10 +11,12 @@ func methodCallRegister(funcId MethodCallId, impl MethodCallImplFunc) {
 	methodCallMap[funcId] = impl
 }
 
-func methodCallInvoke(first uint64, msg *Dart_CObject) {
-	pValue := unsafe.Pointer(&msg.Value)
-	pArr := (*Dart_CObject_AsTypedData)(pValue)
-	arr := (*[MAX_ARRAY_LEN]*Dart_CObject)(unsafe.Pointer(pArr.Values))[1:]
-	methodId := MethodCallId(first)
-	methodCallMap[methodId](arr)
+type invokingGoMethod struct {
+	id   MethodCallId
+	port *Port
+}
+
+func (m invokingGoMethod) specialInt() {}
+func (m invokingGoMethod) handleCObjects(objs []*Dart_CObject) {
+	methodCallMap[m.id](objs)
 }

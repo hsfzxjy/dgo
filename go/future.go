@@ -2,18 +2,16 @@ package dgo
 
 type DartFutureCallback DartCallback
 
-func (dcb DartCallback) AsFut() DartFutureCallback {
-	return DartFutureCallback(dcb)
-}
+func (dcb DartFutureCallback) specialInt() {}
 
 func (dcb DartFutureCallback) Complete(val any, err error) bool {
 	if err == nil {
 		return DartCallback(dcb).
-			Flag(CF_POP | CF_WITHCODE | cf_fut_resolve).
+			Flag(CF_POP | CF_WITHCONTEXT | cf_fut_resolve).
 			Call(val)
 	} else {
 		return DartCallback(dcb).
-			Flag(CF_POP | CF_WITHCODE | cf_fut_reject).
+			Flag(CF_POP | CF_WITHCONTEXT | cf_fut_reject).
 			Call(err.Error())
 	}
 }
@@ -24,7 +22,7 @@ func (dcb DartFutureCallback) Resolve(val any) bool {
 
 func (dcb DartFutureCallback) Reject(err error) bool {
 	if err == nil {
-		panic("dgo:go expect non-nil error argument for DartFutureCallback.Reject()")
+		panic("dgo:go: expect non-nil value as error")
 	}
 	return dcb.Complete(nil, err)
 }

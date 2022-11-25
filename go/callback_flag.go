@@ -10,8 +10,8 @@ const (
 
 	CF_POP CallbackFlag = 1 << (cfBitsStart + 0)
 
-	CF_WITHCODE  CallbackFlag = 1 << (cfBitsStart + 1)
-	CF_PACKARRAY CallbackFlag = 1 << (cfBitsStart + 2)
+	CF_WITHCONTEXT CallbackFlag = 1 << (cfBitsStart + 1)
+	CF_PACKARRAY   CallbackFlag = 1 << (cfBitsStart + 2)
 
 	CF_FAST      CallbackFlag = 1 << (cfBitsStart + 3)
 	CF_FAST_VOID CallbackFlag = CF_FAST + (0 << (cfBitsStart + 4))
@@ -24,7 +24,8 @@ const (
 	cf_fut_reject  CallbackFlag = 0 << (cfBitsStart + 7)
 	cf_fut_resolve CallbackFlag = 1 << (cfBitsStart + 7)
 
-	cf_method_call CallbackFlag = 1 << (cfBitsStart + 8)
+	cf_stream_value CallbackFlag = 0 << (cfBitsStart + 8)
+	cf_stream_error CallbackFlag = 1 << (cfBitsStart + 8)
 )
 
 // 8 <= n <= 15
@@ -35,8 +36,8 @@ func CF_CUSTOM(n int) CallbackFlag {
 func (cf CallbackFlag) Pop() CallbackFlag { return cf | CF_POP }
 func (cf CallbackFlag) HasPop() bool      { return cf&CF_POP != 0 }
 
-func (cf CallbackFlag) WithCode() CallbackFlag { return cf | CF_WITHCODE }
-func (cf CallbackFlag) HasWithCode() bool      { return cf&CF_WITHCODE != 0 }
+func (cf CallbackFlag) WithContext() CallbackFlag { return cf | CF_WITHCONTEXT }
+func (cf CallbackFlag) HasWithContext() bool      { return cf&CF_WITHCONTEXT != 0 }
 
 func (cf CallbackFlag) PackArray() CallbackFlag { return cf | CF_PACKARRAY }
 func (cf CallbackFlag) HasPackArray() bool      { return cf&CF_PACKARRAY != 0 }
@@ -69,8 +70,6 @@ func (cf CallbackFlag) FastKind() CFFastKind {
 
 func (cf CallbackFlag) Fallible() CallbackFlag { return cf | CF_FALLIBLE }
 func (cf CallbackFlag) HasFallible() bool      { return cf&CF_FALLIBLE != 0 }
-
-func (cf CallbackFlag) hasMethodCall() bool { return cf&cf_method_call != 0 }
 
 type CFFastKind int
 

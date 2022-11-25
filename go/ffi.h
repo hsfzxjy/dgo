@@ -5,7 +5,7 @@
 #include "dart_api_dl.h"
 #include "dart_native_api.h"
 
-typedef struct {
+typedef struct _dgo__Dart_CObject {
   Dart_CObject_Type Type;
   union {
     bool    as_bool;
@@ -21,8 +21,8 @@ typedef struct {
       int64_t id;
     } as_capability;
     struct {
-      intptr_t               length;
-      struct _Dart_CObject **values;
+      intptr_t                    length;
+      struct _dgo__Dart_CObject **values;
     } as_array;
     struct {
       Dart_TypedData_Type type;
@@ -63,9 +63,12 @@ typedef struct {
   uintptr_t           Callback; // mod: from Dart_HandleFinalizer
 } dgo__Dart_Cobject_AsExternalTypedData;
 
-void dgo_InitFFI(void *data, Dart_Port_DL sendPort);
-bool dgo__PostCObjects(int cnt, Dart_CObject *cobjs);
-bool dgo__PostInt(int64_t);
+void         dgo__InitFFI(void *data);
+Dart_Port_DL dgo__InitPort(Dart_Port_DL send_port_id);
+bool dgo__PostCObjects(Dart_Port_DL port_id, int cnt, dgo__Dart_CObject *cobjs);
+bool dgo__PostCObject(Dart_Port_DL port_id, dgo__Dart_CObject *cobj);
+bool dgo__PostInt(Dart_Port_DL port_id, int64_t value);
+bool dgo__CloseNativePort(Dart_Port_DL port_id);
 
 extern uintptr_t dgo__pGoFinalizer;
 

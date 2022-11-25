@@ -2,53 +2,50 @@
 
 #include <stdlib.h>
 
-static Dart_Port_DL dartSendPort = ILLEGAL_PORT;
-static Dart_Port_DL dartReceivePort = ILLEGAL_PORT;
-
 extern void dgo__HandleNativeMessage(Dart_Port_DL, Dart_CObject *);
 extern void dgo__GoFinalizer(uintptr_t, uintptr_t);
 
 uintptr_t dgo__pGoFinalizer = (uintptr_t)(&dgo__GoFinalizer);
 
-void dgo_InitFFI(void *data, Dart_Port_DL sendPort) {
-  if (dartReceivePort != ILLEGAL_PORT) {
-    Dart_CloseNativePort_DL(sendPort);
-  }
-  dartSendPort = sendPort;
-  Dart_InitializeApiDL(data);
-  dartReceivePort =
-      Dart_NewNativePort_DL("dgo_port", dgo__HandleNativeMessage, false);
+void dgo__InitFFI(void *data) { Dart_InitializeApiDL(data); }
+
+Dart_Port_DL dgo__InitPort(Dart_Port_DL send_port_id) {
+  Dart_Port_DL receive_port_id =
+      Dart_NewNativePort_DL("dgo:go:", dgo__HandleNativeMessage, false);
   Dart_CObject arg;
   arg.type = Dart_CObject_kSendPort;
-  arg.value.as_send_port.id = dartReceivePort;
-  Dart_PostCObject_DL(sendPort, &arg);
+  arg.value.as_send_port.id = receive_port_id;
+  Dart_PostCObject_DL(send_port_id, &arg);
+  return receive_port_id;
 }
 
-const int DEFAULT_ARGS_SIZE = 10;
-
-bool dgo__PostInt(int64_t obj) {
-  if (dartSendPort == ILLEGAL_PORT)
-    return false;
-
-  return Dart_PostInteger_DL(dartSendPort, obj);
+bool dgo__PostCObject(Dart_Port_DL port_id, dgo__Dart_CObject *cobj) {
+  return Dart_PostCObject_DL(port_id, (Dart_CObject *)cobj);
 }
 
-bool dgo__PostCObjects(int cnt, Dart_CObject *cobjs) {
-  if (dartSendPort == ILLEGAL_PORT)
-    return false;
+bool dgo__PostInt(Dart_Port_DL port_id, int64_t value) {
+  return Dart_PostInteger_DL(port_id, value);
+}
 
-  Dart_CObject   arg;
-  Dart_CObject * pargs[DEFAULT_ARGS_SIZE];
-  Dart_CObject **ppargs, **allocated = NULL;
+bool dgo__PostCObjects(
+    Dart_Port_DL       port_id,
+    int                cnt,
+    dgo__Dart_CObject *cobjs) {
+
+  const int DEFAULT_ARGS_SIZE = 10;
+
+  dgo__Dart_CObject   arg;
+  dgo__Dart_CObject * pargs[DEFAULT_ARGS_SIZE];
+  dgo__Dart_CObject **ppargs, **allocated = NULL;
   if (cnt <= DEFAULT_ARGS_SIZE) {
     ppargs = &pargs[0];
     allocated = false;
   } else {
-    allocated = ppargs = calloc(cnt, sizeof(Dart_CObject *));
+    allocated = ppargs = calloc(cnt, sizeof(dgo__Dart_CObject *));
   }
-  arg.type = Dart_CObject_kArray;
-  arg.value.as_array.length = cnt;
-  arg.value.as_array.values = ppargs;
+  arg.Type = Dart_CObject_kArray;
+  arg.Value.as_array.length = cnt;
+  arg.Value.as_array.values = ppargs;
 
   for (int i = 0; i < cnt; i++) {
     *ppargs = &cobjs[0];
@@ -56,12 +53,16 @@ bool dgo__PostCObjects(int cnt, Dart_CObject *cobjs) {
     cobjs++;
   }
 
-  Dart_PostCObject_DL(dartSendPort, &arg);
+  Dart_PostCObject_DL(port_id, (Dart_CObject *)&arg);
 
   if (allocated != NULL)
     free(allocated);
 
   return true;
+}
+
+bool dgo__CloseNativePort(Dart_Port_DL port_id) {
+  return Dart_CloseNativePort_DL(port_id);
 }
 
 #include "dart_api_dl.c"

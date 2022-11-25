@@ -4,48 +4,70 @@ import (
 	"fmt"
 	"log"
 	"reflect"
-	"sync"
-	"sync/atomic"
 )
 
-type GoCallback uint64
-
-var (
-	goCallbackCounter uint32 = 0
-	goCallbackMap     sync.Map
-)
-
-// cb must be a function
-func PendGo(cb any) GoCallback {
-	cbv := reflect.ValueOf(cb)
-	if cbv.Kind() != reflect.Func {
-		panic("dgo:go cb must be a function")
+func (p *Port) Pend(callback any) GoCallback {
+	callbackV := reflect.ValueOf(callback)
+	if callbackV.Kind() != reflect.Func {
+		panic("dgo:go: callback must be a function")
 	}
-	nextId := atomic.AddUint32(&goCallbackCounter, 1)
-	if _, loaded := goCallbackMap.LoadOrStore(nextId, cbv); loaded {
-		panic("dgo:go too many go callbacks pending")
+
+	var callbackId uint64
+	for n := 0; n < 10; n++ {
+		callbackId = uint64(p.nextCallbackId.Add(1))
+		_, loaded := p.goCallbacks.LoadOrStore(callbackId, callbackV)
+		if !loaded {
+			goto STORE_SUCCESS
+		}
 	}
-	return GoCallback(nextId)
+	panic(fmt.Sprintf("dgo:go: too many callbacks pending on %s", p))
+
+STORE_SUCCESS:
+	return GoCallback{callbackId, p}
 }
 
-func (gcb GoCallback) Remove() {
-	goCallbackMap.Delete(uint32(gcb))
+func Pend(callback any, port *Port) GoCallback {
+	return portMap.ResolvePort(port).Pend(callback)
 }
 
-func (gcb GoCallback) Exists() bool {
-	_, loaded := goCallbackMap.Load(uint32(gcb))
+type GoCallback struct {
+	id   uint64 // Id (32 bits)
+	port *Port
+}
+
+var _ _Serializable = GoCallback{}
+
+func (cb GoCallback) specialInt()              {}
+func (cb GoCallback) getKind() _SpecialIntKind { return sikGoCallback }
+func (cb GoCallback) getPayload() uint64       { return cb.id }
+
+func (gcb *GoCallback) Remove() {
+	gcb.port.goCallbacks.Delete(gcb.id)
+}
+
+func (gcb *GoCallback) Exists() bool {
+	_, loaded := gcb.port.goCallbacks.Load(gcb.id)
 	return loaded
 }
 
-func (gcb GoCallback) decompose() (id uint32, cf CallbackFlag) {
-	return uint32(gcb & ((1 << 32) - 1)), CallbackFlag(gcb)
+type invokingGoCallback struct {
+	payload uint64 // Flag (16 bits) | Id (32 bits)
+	port    *Port
 }
 
-func (gcb GoCallback) handle(objs []any) {
-	id, cf := gcb.decompose()
+func (cb invokingGoCallback) String() string {
+	return fmt.Sprintf("invokingGoCallback[payload=%016X, port=%s]", cb.payload, cb.port)
+}
+
+func (cb invokingGoCallback) specialInt() {}
+
+func (cb invokingGoCallback) handleCObjects(objs []*Dart_CObject) {
+	id := cb.payload & callbackIdMask
+	cf := CallbackFlag(cb.payload)
+
 	var (
-		v      any
-		loaded bool
+		callbackV reflect.Value
+		loaded    bool
 	)
 
 	if cf.HasFallible() {
@@ -57,14 +79,13 @@ func (gcb GoCallback) handle(objs []any) {
 	}
 
 	if cf.HasPop() {
-		v, loaded = goCallbackMap.LoadAndDelete(id)
+		callbackV, loaded = cb.port.goCallbacks.LoadAndDelete(id)
 	} else {
-		v, loaded = goCallbackMap.Load(id)
+		callbackV, loaded = cb.port.goCallbacks.Load(id)
 	}
 	if !loaded {
-		panic(fmt.Sprintf("dgo:go go callback not exist, id=%d", id))
+		panic(fmt.Sprintf("dgo:go: go callback not exist, %s", cb))
 	}
-	fn := v.(reflect.Value)
 
 	hasPackArray := cf.HasPackArray()
 
@@ -77,16 +98,17 @@ func (gcb GoCallback) handle(objs []any) {
 		values = make([]reflect.Value, 0, len(objs)+2)
 	}
 
-	if cf.HasWithCode() {
+	if cf.HasWithContext() {
+		context := &InvokeContext{cf, cb.port}
 		if hasPackArray {
-			args = append(args, cf)
+			args = append(args, context)
 		} else {
-			values = append(values, reflect.ValueOf(cf))
+			values = append(values, reflect.ValueOf(context))
 		}
 	}
 	if cf.HasFast() {
 		if len(objs) != 0 {
-			panic("dgo:go go callback with flag CF_FAST should have no arguments")
+			panic(fmt.Sprintf("dgo:go: expect zero argument when called with FAST flag, %s", cb))
 		}
 		var arg any
 		switch cf.FastKind() {
@@ -111,21 +133,19 @@ func (gcb GoCallback) handle(objs []any) {
 		}
 	SKIP:
 	} else {
-		if hasPackArray {
-			args = append(args, objs...)
-		} else {
-			for i, arg := range objs {
-				if arg == nil {
-					values = append(values, reflect.ValueOf(&objs[i]).Elem())
-				} else {
-					values = append(values, reflect.ValueOf(arg))
-				}
-
+		for _, obj := range objs {
+			arg := cobjectParse(cb.port, obj)
+			if hasPackArray {
+				args = append(args, arg)
+			} else if arg == nil {
+				values = append(values, reflect.ValueOf(&arg).Elem())
+			} else {
+				values = append(values, reflect.ValueOf(arg))
 			}
 		}
 	}
 	if hasPackArray {
 		values = []reflect.Value{reflect.ValueOf(args)}
 	}
-	fn.Call(values)
+	callbackV.Call(values)
 }
