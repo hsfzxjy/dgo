@@ -2,9 +2,9 @@ library dgo;
 
 // Dart imports:
 import 'dart:async';
-import 'dart:developer';
 import 'dart:ffi';
 import 'dart:isolate';
+import 'dart:typed_data';
 
 // Package imports:
 import 'package:logging/logging.dart';
@@ -13,25 +13,27 @@ import 'package:meta/meta.dart';
 // Project imports:
 import './dgo_binding.dart' as binding;
 
-part 'future.dart';
-part 'dylib.dart';
 part 'callback_flag.dart';
 part 'dart_callback.dart';
 part 'go_callback.dart';
-part 'serialize.dart';
+part 'go_object.dart';
+part 'port.dart';
+part 'special_int.dart';
+part 'invoke_context.dart';
+part 'utils.dart';
+part 'math_utils.dart';
 
-class Dgo {
-  static void init(DynamicLibrary dylib) => _init(dylib);
-  static int pendDart(Function fn) => _dartCallbackPend(fn);
-  static int pendCompleter(Completer com) => _dartCallbackPendCompleter(com);
-  static void removeDart(int cb) {
-    _dartCallbackMap.remove(cb);
-  }
+class _Dgo extends DgoPortLike with _PortMixin {
+  DgoPort? _defaultPort;
+  DgoPort get defaultPort => _defaultPort!;
+  @override
+  DgoPort get _port => defaultPort;
 
-  static void shutdown() => _receivePort.close();
+  Future<DgoPort> initDefaultPort(DynamicLibrary dylib) =>
+      DgoPort._build('dgo:dart:default', dylib, isDefault: true);
 
-  @visibleForTesting
-  static bool dartCallbackExist(int id) {
-    return _dartCallbackMap.containsKey(id);
-  }
+  Future<DgoPort> newPort(DynamicLibrary dylib, {String name = 'custom'}) =>
+      DgoPort._build('dgo:dart:$name', dylib, isDefault: false);
 }
+
+final dgo = _Dgo();

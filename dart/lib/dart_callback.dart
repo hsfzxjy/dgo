@@ -1,79 +1,113 @@
 part of dgo;
 
-const _maxDartCallbackId = 1 << 32;
+class DartCallback implements _Serializable {
+  final int _id;
+  final DgoPort _port;
+  const DartCallback._(this._id, this._port);
 
-var _dartCallbackId = 0;
-final _dartCallbackMap = <int, Function>{};
+  @override
+  int get _payload => _id;
 
-int _dartCallbackPend(Function fn) {
-  _dartCallbackId++;
-  if (_dartCallbackId >= _maxDartCallbackId) _dartCallbackId = 0;
-  final nextId = _dartCallbackId;
-  if (_dartCallbackMap.containsKey(nextId)) {
-    throw 'dgo:dart too many dart callbacks pending';
+  @override
+  final _kind = _SpecialIntKind.dartCalback;
+
+  void remove() {
+    _port._callbacks.remove(_id);
   }
-  _dartCallbackMap[nextId] = fn;
-  return nextId;
+
+  @visibleForTesting
+  int get id => _id;
+
+  @visibleForTesting
+  bool get exists => _port._callbacks.containsKey(_id);
 }
 
-void _dartCallbackHandle(List objs) {
-  if (objs.isEmpty) throw 'dgo:dart empty argument array';
+class DartFutureCallback extends DartCallback {
+  const DartFutureCallback._(int id, DgoPort dgoPort) : super._(id, dgoPort);
 
-  final int dcb = objs[0];
-  final cf = CallbackFlag._(dcb);
-
-  if (cf.hasFallible) {
-    try {
-      _dartCallbackHandleFallibleSection(objs, dcb, cf);
-    } catch (e) {
-      log('$e', level: Level.WARNING.value);
-    }
-  } else {
-    _dartCallbackHandleFallibleSection(objs, dcb, cf);
-  }
+  @override
+  // ignore: overridden_fields
+  final _kind = _SpecialIntKind.dartFutureCallback;
 }
 
-void _dartCallbackHandleFallibleSection(List objs, int dcb, CallbackFlag cf) {
-  final id = dcb & (_maxDartCallbackId - 1);
+class DartStreamCallback extends DartCallback {
+  const DartStreamCallback._(int id, DgoPort dgoPort) : super._(id, dgoPort);
 
-  final Function? fn;
-  if (cf.hasPop) {
-    fn = _dartCallbackMap.remove(id);
-  } else {
-    fn = _dartCallbackMap[id];
-  }
+  @override
+  // ignore: overridden_fields
+  final _kind = _SpecialIntKind.dartStreamCallback;
+}
 
-  if (fn == null) {
-    throw 'dgo:dart dart callback not exist, id=$id';
-  }
+class _InvokingDartCallback extends _Handlable {
+  final _CallbackId _id;
+  final CallbackFlag _flag;
+  final DgoPort _port;
 
-  final args = [];
+  _InvokingDartCallback._(int value, this._port)
+      : _id = value & _callbackIdMask,
+        _flag = CallbackFlag._(value);
 
-  if (cf.hasWithCode) args.add(cf);
+@override
+  String toString() => '$runtimeType[id=$_id, port=$_port]';
 
-  if (cf.hasFast) {
-    if (objs.length > 1) {
-      throw 'dgo:dart dart callback with fastKind != none should have no arguments';
+  @override
+  void _handleObjects(Iterable objs) {
+    if (_flag.hasFallible) {
+      try {
+        _handleObjectsFallible(objs);
+      } catch (e, st) {
+        _logger.warning('error caught in $this', e, st);
+      }
+    } else {
+      _handleObjectsFallible(objs);
     }
-    switch (cf.fastKind) {
-      case FastKind.nil:
-        args.add(null);
-        break;
-      case FastKind.yes:
-        args.add(true);
-        break;
-      case FastKind.no:
-        args.add(false);
-        break;
-      default:
-    }
-  } else {
-    args.addAll(objs.sublist(1));
   }
 
-  if (cf.hasPackArray) {
-    fn(args);
-  } else {
-    Function.apply(fn, args);
+  void _handleObjectsFallible(Iterable objs) {
+    final Function? fn;
+    {
+      final callbacks = _port._callbacks;
+      if (_flag.hasPop) {
+        fn = callbacks.remove(_id);
+      } else {
+        fn = callbacks[_id];
+      }
+    }
+
+    if (fn == null) {
+      throw 'dgo:dart: callback not exist, $this';
+    }
+
+    var args = Iterable.empty();
+
+    if (_flag.hasWithContext) {
+      args = _OneShot(InvokeContext(_flag, _port));
+    }
+
+    if (_flag.hasFast) {
+      if (objs.isNotEmpty) {
+        throw 'dgo:dart: expect zero argument when called with FAST flag, $this';
+      }
+      switch (_flag.fastKind) {
+        case FastKind.nil:
+          args = args.followedBy(const _OneShot(null));
+          break;
+        case FastKind.yes:
+          args = args.followedBy(const _OneShot(true));
+          break;
+        case FastKind.no:
+          args = args.followedBy(const _OneShot(false));
+          break;
+        default:
+      }
+    } else {
+      args = args.followedBy(objs);
+    }
+
+    if (_flag.hasPackArray) {
+      fn(args.toList());
+    } else {
+      Function.apply(fn, args.toList());
+    }
   }
 }

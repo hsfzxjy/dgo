@@ -17,30 +17,24 @@ class LibDgo {
           lookup)
       : _lookup = lookup;
 
-  void dgo_InitGo() {
-    return _dgo_InitGo();
-  }
-
-  late final _dgo_InitGoPtr =
-      _lookup<ffi.NativeFunction<ffi.Void Function()>>('dgo_InitGo');
-  late final _dgo_InitGo = _dgo_InitGoPtr.asFunction<void Function()>();
-
-  void dgo_InitFFI(
-    ffi.Pointer<ffi.Void> data,
-    int sendPort,
+  void dgo_InitPort(
+    ffi.Pointer<ffi.Void> apiDLData,
+    int sendPortKey,
+    bool isDefault,
   ) {
-    return _dgo_InitFFI(
-      data,
-      sendPort,
+    return _dgo_InitPort(
+      apiDLData,
+      sendPortKey,
+      isDefault,
     );
   }
 
-  late final _dgo_InitFFIPtr = _lookup<
+  late final _dgo_InitPortPtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-              ffi.Pointer<ffi.Void>, Dart_Port_DL)>>('dgo_InitFFI');
-  late final _dgo_InitFFI =
-      _dgo_InitFFIPtr.asFunction<void Function(ffi.Pointer<ffi.Void>, int)>();
+              ffi.Pointer<ffi.Void>, Dart_Port_DL, ffi.Bool)>>('dgo_InitPort');
+  late final _dgo_InitPort = _dgo_InitPortPtr
+      .asFunction<void Function(ffi.Pointer<ffi.Void>, int, bool)>();
 }
 
 typedef Dart_Port_DL = ffi.Int64;
