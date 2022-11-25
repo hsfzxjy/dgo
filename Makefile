@@ -10,6 +10,7 @@ DART_SDK_INCLUDE_DIR = $(shell bash -c 'dirname `which flutter`')/cache/dart-sdk
 GOSRC = $(abspath $(shell grep -Ril go/*.go -e 'import "C"'))
 
 BUILD_DIR = $(abspath ./build)
+WORK_DIR = $(abspath .)
 
 build/include/go.h: $(GOSRC)
 	rm build -rf
@@ -29,29 +30,32 @@ ffigen: dart/lib/dgo_binding.dart
 
 .PHONY: test
 test:
-	cd tests/dummyso/
+	cd tests/test_basic/go
 	make
-	cd ../../dart
-	export LD_LIBRARY_PATH=$(BUILD_DIR)
+	cd ../dart
+	dart run ffigen
 	dart run test --reporter=expanded --debug
+
+tidy_go = (cd $(WORK_DIR)/$1; go mod tidy)
+tidy_dart = (cd $(WORK_DIR)/$1; dart run import_sorter:main; dart fix --apply)
 
 .PHONY: tidy
 tidy:
-	cd go
-	go mod tidy
+	$(call tidy_go,go)
+	$(call tidy_go,dgo-gen)
 
-	cd ../dgo-gen/
-	go mod tidy
-
-	cd ../dart/
-	dart pub run import_sorter:main
-	dart fix --apply
-
-	cd ../dgo-gen-dart/
-	dart pub run import_sorter:main
-	dart fix --apply
+	$(call tidy_dart,dart)
+	$(call tidy_dart,tests/test_basic/dart)
+	$(call tidy_dart,dgo-gen-dart)
 
 .PHONY: test_gen
 test_gen:
-	go run github.com/hsfzxjy/dgo/dgo-gen github.com/hsfzxjy/dgo/tests/gen_tests/...
+	if ! go run github.com/hsfzxjy/dgo/dgo-gen github.com/hsfzxjy/dgo/tests/gen_tests/...; then
+		exit 1
+	fi
 	cd dgo-gen-dart && dart run
+
+.PHONY: run
+run:
+	cd $(WORK_DIR)/$(at)
+	$(cmd)
