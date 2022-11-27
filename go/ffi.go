@@ -37,6 +37,10 @@ const (
 
 type PortKey C.Dart_Port_DL
 
+func dgo__PostCObjects(port *Port, n int, arr *Dart_CObject) bool {
+	return bool(C.dgo__PostCObjects(C.Dart_Port_DL(port.sendPortKey), C.int(n), arr))
+}
+
 /* Port Methods */
 
 func (p *Port) panicPostFailure() {
