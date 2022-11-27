@@ -88,7 +88,7 @@ func loadIntoString(src, idx, dst Code) *Statement {
 					Op("||").
 					Id("pStr").Index(Id("length")).Op("!=").LitByte('\x00')).
 			Block(
-				Panic(Lit("dgo:go string too long"))),
+				Panic(Lit("dgo:go: string too long"))),
 
 		Id("byteSlice").Op(":=").Make(Index().Byte(), Id("length")),
 
