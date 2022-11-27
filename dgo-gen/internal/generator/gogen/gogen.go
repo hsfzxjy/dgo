@@ -451,6 +451,10 @@ type Generator struct {
 
 func (d *Generator) buildFunctionsForType(etype *exported.Type, file *File) {
 	name := etype.Name()
+
+	file.Commentf("/*** GENERATED CODE FOR %s ***/", name).
+		Line()
+
 	file.Func().
 		Params(Op("*").Id(name)).
 		Id("DgoGoSize").
