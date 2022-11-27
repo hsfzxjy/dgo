@@ -17,6 +17,12 @@ const cgoPreamble = "#include <stdint.h>\n#include <stdbool.h>"
 
 func typeNameOf(etype *exported.Type, term ir.Term) *Statement {
 	s := Statement(nil)
+
+	var ident *ir.Ident
+	if t, ok := term.(ir.HasIdent); ok && t.GetIdent() != nil {
+		ident = t.GetIdent()
+		goto HANDLE_IDENT
+	}
 LOOP:
 	for {
 		switch t := term.(type) {
@@ -27,12 +33,8 @@ LOOP:
 			s.Index(Lit(t.Len))
 			term = t.Elem
 		case *ir.Coerce:
-			if etype.PPackage.PkgPath == t.Pkg.Path() {
-				s.Id(t.Name)
-			} else {
-				s.Qual(t.Pkg.Path(), t.Name)
-			}
-			term = t.Elem
+			ident = t.Ident
+			goto HANDLE_IDENT
 		case *ir.Basic:
 			s.Id(t.TypeName)
 			break LOOP
@@ -42,6 +44,16 @@ LOOP:
 			panic("unreachable")
 		}
 	}
+	goto RETURN
+
+HANDLE_IDENT:
+	if etype.PPackage.PkgPath == ident.Pkg.Path() {
+		s.Id(ident.Name)
+	} else {
+		s.Qual(ident.Pkg.Path(), ident.Name)
+	}
+
+RETURN:
 	return &s
 }
 
