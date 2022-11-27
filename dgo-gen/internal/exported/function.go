@@ -76,15 +76,22 @@ func (efunc *Function) Resolve() {
 	}
 	results := sig.Results()
 	if results != nil {
-		if results.Len() > 2 {
-			goto BAD_RETURN_SIG
-		} else if results.Len() == 2 {
+		switch results.Len() {
+		case 1:
+			if isErrorInterface(results.At(0).Type()) {
+				efunc.ReturnError = true
+			} else {
+				efunc.Return = efunc.SolveType(results.At(0))
+			}
+		case 2:
+			efunc.Return = efunc.SolveType(results.At(0))
 			if !isErrorInterface(results.At(1).Type()) {
 				goto BAD_RETURN_SIG
 			}
 			efunc.ReturnError = true
+		default:
+			goto BAD_RETURN_SIG
 		}
-		efunc.Return = efunc.SolveType(results.At(0))
 	}
 
 	efunc.Type.Methods = append(efunc.Type.Methods, TypeMethod{efunc.Name, efunc})
@@ -94,6 +101,7 @@ BAD_RETURN_SIG:
 	efunc.ThrowAt(f.Obj(), `exported function should return
  1) nothing OR
  2) type T OR
- 3) type (T, error)
+ 3) type error OR
+ 4) type (T, error)
 where T is an exportable type.`)
 }
