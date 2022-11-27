@@ -274,7 +274,6 @@ func storeBasic(t *ir.Basic, g *Group) {
 }
 
 func buildFunction_DgoStore(etype *exported.Type, term ir.Term, g *Group, looper *looper) {
-SWITCH:
 	switch t := term.(type) {
 	case *ir.Struct:
 		for _, f := range t.Fields {
@@ -289,9 +288,11 @@ SWITCH:
 			buildFunction_DgoStore(etype, t.Term, g, looper)
 		})
 	case *ir.PtrTo:
-		g.Op("*").Id("o").Op("=").New(typeNameOf(etype, t))
-		term = t.Elem
-		goto SWITCH
+		g.Op("*").Id("o").Op("=").New(typeNameOf(etype, t.Elem))
+		g.BlockFunc(func(g *Group) {
+			g.Id("o").Op(":=").Op("*").Id("o")
+			buildFunction_DgoStore(etype, t.Elem, g, looper)
+		})
 	case *ir.Coerce:
 		g.Id("_index_").
 			Op("=").
