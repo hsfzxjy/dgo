@@ -34,28 +34,35 @@ extension _IRExt on IR {
   }
 }
 
+extension _SumExt<T extends num> on Iterable<T> {
+  T sum() => isEmpty ? 0 as T : reduce((a, b) => (a + b) as T);
+}
+
 class Method {
   final IR self;
   final String funcName;
   final List<Param> params;
   final int funcId;
   final IR? returnType;
+  final bool returnError;
 
   Method.fromMap(this.self, Map m)
       : funcName = m['Name'],
         funcId = m['FuncId'],
         params = (m['Params'] as List).map((m) => Param.fromMap(m)).toList(),
-        returnType = _buildIRNull(m['Return']);
+        returnType = _buildIRNull(m['Return']),
+        returnError = m['ReturnError'];
 
   void writeSnippet(GeneratorContext ctx) {
     var paramSig = params
-        .map((p) => '${p.term.dartType(ctx.importer)} ${p.name}')
-        .join(',');
-    var paramSize = params.map((p) => p.term.goSize).reduce((a, b) => a + b);
+        .map((p) => '${p.term.outerDartType(ctx.importer)} ${p.name}')
+        .followedBy(['{Duration? \$timeout, DgoPort? \$port}']).join(',');
+    var paramSize = params.map((p) => p.term.goSize).sum();
     paramSize += self.goSize;
     ctx.buffer
       ..writeln('Future<${returnType.dartType(ctx.importer)}>')
-      ..writeln('$funcName($paramSig, {Duration? \$timeout}) async {')
+      ..writeln('$funcName($paramSig) async {')
+      ..writeln('\$port ??= dgo.defaultPort;')
       ..writeln(
           'final ${ctx[vArgs]} = List<dynamic>.filled($paramSize, null, growable: false);')
       ..writeln('var ${ctx[vIndex]} = 0;')
@@ -67,26 +74,16 @@ class Method {
             ..writeln('final ${ctx[vHolder]} = ${param.name};')
             ..pipe(param.term.writeSnippet$dgoStore(ctx))
             ..writeln('}'))
-      ..writeln(
-          'final \$completer = Completer<${returnType.holderType(ctx.importer)}>();')
-      ..writeln('final \$callback = Dgo.pendCompleter(\$completer);')
-      ..writeln(
-          'Future<${returnType.holderType(ctx.importer)}> \$future = \$completer.future;')
-      ..writeln('if (\$timeout != null) {')
-      ..writeln('\$future = \$future.timeout(\$timeout, onTimeout: () async {')
-      ..writeln('Dgo.removeDart(\$callback);')
-      ..writeln("throw 'The Go call fails to respond in \${\$timeout}';")
-      ..writeln('});')
-      ..writeln('}')
-      ..writeln(
-          'GoMethod($funcId).call(${ctx[vArgs]}, ${ctx[vIndex]}, \$callback);')
+      ..writeln('final \$future = GoMethod($funcId, \$port)'
+          '.${returnType == null ? "call" : "callWithResult"}'
+          '(${ctx[vArgs]}, '
+          'timeout: \$timeout, hasError: $returnError);')
       ..if_(
           returnType == null,
-          () => ctx.buffer.writeln('return \$completer.future;'),
+          () => ctx.buffer.writeln('return \$future;'),
           () => ctx.buffer
             ..writeln('{')
-            ..writeln('final ${ctx[vArgs]} = await \$completer.future;')
-            ..writeln('var ${ctx[vIndex]} = 0;')
+            ..writeln('final ${ctx[vArgs]} = (await \$future).iterator;')
             ..writeln('${returnType!.dartType(ctx.importer)} ${ctx[vHolder]};')
             ..pipe(returnType!.writeSnippetLoad(ctx))
             ..writeln('return ${ctx[vHolder]};')
