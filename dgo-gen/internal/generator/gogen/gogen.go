@@ -129,7 +129,6 @@ func loadBasic(t *ir.Basic, g *Group) {
 }
 
 func buildFunction_DgoLoad(etype *exported.Type, term ir.Term, g *Group, looper *looper) {
-SWITCH:
 	switch t := term.(type) {
 	case *ir.Struct:
 		for _, f := range t.Fields {
@@ -148,9 +147,12 @@ SWITCH:
 	case *ir.PtrTo:
 		g.Op("*").Id("o").
 			Op("=").
-			New(typeNameOf(etype, t))
-		term = t.Elem
-		goto SWITCH
+			New(typeNameOf(etype, t.Elem))
+		g.BlockFunc(func(g *Group) {
+			g.Id("o").
+				Op(":=").Op("*").Id("o")
+			buildFunction_DgoLoad(etype, t.Elem, g, looper)
+		})
 	case *ir.Coerce:
 		g.Id("_index_").
 			Op("=").
