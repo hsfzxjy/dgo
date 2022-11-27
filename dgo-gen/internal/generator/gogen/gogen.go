@@ -336,6 +336,115 @@ func buildFunction_DgoStore(etype *exported.Type, term ir.Term, g *Group, looper
 	}
 }
 
+func buildFunction_method(etype *exported.Type, method exported.TypeMethod, g *Group) {
+	g.Var().Id("cobj").Op("*").Qual(dgoMod, "Dart_CObject")
+	g.Id("_index_").Op(":=").Lit(0)
+	g.Var().Id("o").Id(etype.Name())
+	g.Id("_index_").
+		Op("=").
+		Id("o").Dot("DgoLoad").
+		Call(
+			Id("arr"),
+			Id("_index_"))
+
+	for paramId, param := range method.Params {
+		paramName := fmt.Sprintf("arg%d", paramId)
+		g.Var().Id(paramName).Add(typeNameOf(etype, param.Term))
+		g.BlockFunc(func(g *Group) {
+			g.Id("o").Op(":=").Op("&").Id(paramName)
+			buildFunction_DgoLoad(etype, param.Term, g, &looper{})
+		})
+	}
+
+	g.Var().Id("callback").Uint64()
+	g.Add(loadIntoBasic(Id("arr").Index(Id("_index_")), Qual("C", "uint64_t"), Op("&").Id("callback"), Uint64()))
+	g.Id("callback").Op("|=").Uint64().Call(
+		Qual(dgoMod, "CF_POP").Op("|").Qual(dgoMod, "CF_PACKARRAY"))
+
+	var resultReceiver *Statement = &Statement{}
+	switch {
+	case method.Return != nil && method.ReturnError:
+		resultReceiver.List(Id("result"), Id("err"))
+	case method.Return != nil:
+		resultReceiver.Id("result")
+	case method.ReturnError:
+		resultReceiver.Id("err")
+	}
+	if len(*resultReceiver) != 0 {
+		resultReceiver.Op(":=")
+	}
+
+	g.Add(resultReceiver).Id("o").Dot(method.Name).
+		CallFunc(func(g *Group) {
+			for paramId := range method.Params {
+				paramName := fmt.Sprintf("arg%d", paramId)
+				g.Id(paramName)
+			}
+		})
+
+	g.Var().Id("keepAliveArr").Index().Any()
+	g.Id("keepAlive").Op(":=").Op("&").Id("keepAliveArr")
+	g.Id("_index_").Op("=").Lit(0)
+
+	defineArrAndStoreCallback := func(g *Group, nArgs int) {
+		g.Var().Id("arr").Index(Lit(nArgs)).Qual(dgoMod, "Dart_CObject")
+		if method.ReturnError {
+			g.If(Id("err").Op("!=").Nil()).Block(
+				Id("callback").Op("|=").Uint64().Call(Id("cf_fut_reject")),
+			)
+		}
+		g.BlockFunc(func(g *Group) {
+			g.Id("o").Op(":=").Op("&").Id("callback")
+			storeFromInt(g)
+			g.Id("_index_").Op("++")
+		})
+	}
+
+	storeErr := func(g *Group) {
+		g.If(Id("err").Op("!=").Nil()).
+			BlockFunc(func(g *Group) {
+				g.Id("errString").Op(":=").Id("err").Dot("Error").Call()
+				g.Id("o").Op(":=").Op("&").Id("errString")
+				storeFromString(g)
+				g.Id("_index_").Op("++")
+			}).
+			Else().BlockFunc(func(g *Group) {
+			g.Id("arr").Index(Id("_index_")).Dot("Type").
+				Op("=").Qual(dgoMod, "Dart_CObject_kNull")
+			g.Id("_index_").Op("++")
+		})
+	}
+
+	storeResult := func(g *Group) {
+		g.Id("o").Op(":=").Op("&").Id("result")
+		buildFunction_DgoStore(etype, method.Return, g, &looper{})
+	}
+
+	g.BlockFunc(func(g *Group) {
+		switch {
+		case method.Return != nil && method.ReturnError:
+			defineArrAndStoreCallback(g, 2+ir.DartSizeof(method.Return))
+			storeErr(g)
+			storeResult(g)
+		case method.Return != nil:
+			defineArrAndStoreCallback(g, 1+ir.DartSizeof(method.Return))
+			storeResult(g)
+		case method.ReturnError:
+			defineArrAndStoreCallback(g, 2)
+			storeErr(g)
+		default:
+			defineArrAndStoreCallback(g, 1)
+		}
+
+		g.Id("dgoPostCObjects").Call(
+			Id("port"),
+			Id("_index_"),
+			Op("&").Id("arr").Index(Lit(0)),
+		)
+		g.Qual("runtime", "KeepAlive").Call(Id("keepAlive"))
+	})
+}
+
 type Generator struct {
 	files map[string]*File
 }
@@ -393,96 +502,10 @@ func (d *Generator) buildFunctionsForType(etype *exported.Type, file *File) {
 		file.Func().
 			Id(implName).
 			Params(
+				Id("port").Op("*").Qual(dgoMod, "Port"),
 				Id("arr").Index().Op("*").Qual(dgoMod, "Dart_CObject")).
 			BlockFunc(func(g *Group) {
-				g.Var().Id("cobj").Op("*").Qual(dgoMod, "Dart_CObject")
-				g.Id("_index_").Op(":=").Lit(0)
-				g.Var().Id("o").Id(etype.Name())
-				g.Id("_index_").
-					Op("=").
-					Id("o").Dot("DgoLoad").
-					Call(
-						Id("arr"),
-						Id("_index_"))
-
-				for paramId, param := range method.Params {
-					paramName := fmt.Sprintf("arg%d", paramId)
-					g.Var().Id(paramName).Add(typeNameOf(etype, param.Term))
-					g.BlockFunc(func(g *Group) {
-						g.Id("o").Op(":=").Op("&").Id(paramName)
-						buildFunction_DgoLoad(etype, param.Term, g, &looper{})
-					})
-				}
-
-				g.Var().Id("callback").Uint64()
-				g.Add(loadIntoInt(Id("arr"), Id("_index_"), Op("&").Id("callback"), Uint64()))
-				g.Id("callback").Op("|=").Uint64().Call(Qual(dgoMod, "CF_POP").Op("|").Qual(dgoMod, "CF_PACKARRAY"))
-
-				var resultReceiver *Statement = Empty()
-				if method.Return != nil {
-					if method.ReturnError {
-						resultReceiver = List(Id("result"), Id("err"))
-					} else {
-						resultReceiver = Id("result")
-					}
-					resultReceiver = resultReceiver.Op(":=")
-				}
-
-				g.Add(resultReceiver).Id("o").Dot(method.Name).
-					CallFunc(func(g *Group) {
-						for paramId := range method.Params {
-							paramName := fmt.Sprintf("arg%d", paramId)
-							g.Id(paramName)
-						}
-					})
-
-				g.Var().Id("keepAliveArr").Index().Any()
-				g.Id("keepAlive").Op(":=").Op("&").Id("keepAliveArr")
-				g.Id("_index_").Op("=").Lit(0)
-				g.BlockFunc(func(g *Group) {
-					if method.Return == nil {
-						g.Var().Id("arr").Index(Lit(1)).Qual(dgoMod, "Dart_CObject")
-						g.Id("o").Op(":=").Op("&").Id("callback")
-						storeFromInt(g)
-						g.Id("_index_").Op("++")
-					} else if !method.ReturnError {
-						g.Var().Id("arr").Index(Lit(1+ir.DartSizeof(method.Return))).Qual(dgoMod, "Dart_CObject")
-						g.BlockFunc(func(g *Group) {
-							g.Id("o").Op(":=").Op("&").Id("callback")
-							storeFromInt(g)
-							g.Id("_index_").Op("++")
-						})
-						g.BlockFunc(func(g *Group) {
-							g.Id("o").Op(":=").Op("&").Id("result")
-							buildFunction_DgoStore(etype, method.Return, g, &looper{})
-						})
-					} else {
-						g.Var().Id("arr").Index(Lit(2+ir.DartSizeof(method.Return))).Qual(dgoMod, "Dart_CObject")
-						g.If(Id("err").Op("!=").Nil()).Block(
-							Id("callback").Op("|=").Uint64().Call(Id("cf_fut_reject")),
-						)
-						g.BlockFunc(func(g *Group) {
-							g.Id("o").Op(":=").Op("&").Id("callback")
-							storeFromInt(g)
-							g.Id("_index_").Op("++")
-						})
-						g.If(Id("err").Op("!=").Nil()).BlockFunc(func(g *Group) {
-							g.Id("errString").Op(":=").Id("err").Dot("Error").Call()
-							g.Id("o").Op(":=").Op("&").Id("errString")
-							storeFromString(g)
-							g.Id("_index_").Op("++")
-						}).Else().BlockFunc(func(g *Group) {
-							g.Id("o").Op(":=").Op("&").Id("result")
-							buildFunction_DgoStore(etype, method.Return, g, &looper{})
-						})
-					}
-					g.Id("dgoPostCObjects").Call(
-						Id("_index_"),
-						Op("&").Id("arr").Index(Lit(0)),
-					)
-					g.Qual("runtime", "KeepAlive").Call(Id("keepAlive"))
-				})
-
+				buildFunction_method(etype, method, g)
 			}).
 			Line().
 			Line().
