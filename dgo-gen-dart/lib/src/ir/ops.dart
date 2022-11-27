@@ -111,8 +111,8 @@ class OpBasic extends Namable {
   @override
   void writeSnippet$dgoLoad(GeneratorContext ctx) {
     ctx.buffer
-      ..writeln('${ctx[vHolder]} = ${ctx[vArgs]}[${ctx[vIndex]}];')
-      ..writeln('${ctx[vIndex]}++;');
+      ..writeln('${ctx[vHolder]} = ${ctx[vArgs]}.current;')
+      ..writeln('${ctx[vArgs]}.moveNext();');
   }
 
   @override
@@ -137,13 +137,8 @@ class OpCoerce extends IR {
 
   @override
   void writeSnippet$dgoLoad(GeneratorContext ctx) {
-    ctx.buffer
-      ..writeln('{')
-      ..writeln(
-          'final result = ${dartType(ctx.importer)}.\$dgoLoad(${ctx[vArgs]}, ${ctx[vIndex]});')
-      ..writeln('${ctx[vHolder]} = result.result;')
-      ..writeln('${ctx[vIndex]} = result.nextIndex;')
-      ..writeln('}');
+    ctx.buffer.writeln(
+        '${ctx[vHolder]} = ${dartType(ctx.importer)}.\$dgoLoad(${ctx[vArgs]});');
   }
 
   @override
@@ -266,9 +261,9 @@ class OpOptional extends IR {
   @override
   void writeSnippet$dgoLoad(GeneratorContext ctx) {
     ctx.buffer
-      ..writeln('if (${ctx[vArgs]}[${ctx[vIndex]}]==null) {')
+      ..writeln('if (${ctx[vArgs]}.current==null) {')
       ..writeln('${ctx[vHolder]} = null;')
-      ..writeln('${ctx[vIndex]}++;')
+      ..writeln('${ctx[vArgs]}.moveNext();')
       ..writeln('} else {')
       ..pipe(term.writeSnippet$dgoLoad(ctx))
       ..writeln('}');
