@@ -72,7 +72,8 @@ class Generator {
 
     file
       ..writeln()
-      ..writeln('int \$dgoStore(List<dynamic> ${ctx[vArgs]}, int ${ctx[vIndex]}) {')
+      ..writeln(
+          'int \$dgoStore(List<dynamic> ${ctx[vArgs]}, int ${ctx[vIndex]}) {')
       ..writeln('final ${ctx[vHolder]} = this;')
       ..pipe(ir.writeSnippet$dgoStore(ctx))
       ..writeln('return ${ctx[vIndex]};')
