@@ -231,8 +231,9 @@ func storeFromString(g *Group) {
 				Op("||").
 				Id("o").Index(Len(Id("o")).Op("-").Lit(1)).Op("!=").LitByte('\x00')).
 			Block(
-				Id("o").Op("=").Id("o").Op("+").Lit("\x00"),
-				Op("*").Id("keepAlive").Op("=").Append(Op("*").Id("keepAlive"), Id("o"))),
+				Id("o").Op("=").Id("o").Op("+").Lit("\x00")),
+
+		Op("*").Id("keepAlive").Op("=").Append(Op("*").Id("keepAlive"), Id("o")),
 
 		Id("header").
 			Op(":=").
