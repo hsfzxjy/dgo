@@ -56,15 +56,13 @@ class Generator {
     file
       ..writeln()
       ..writeln(
-          'static DgoTypeLoadResult<$entryName> \$dgoLoad(List<dynamic> ${ctx[vArgs]}, int ${ctx[vIndex]}){')
+          'static ${ir.outerDartType(file.importer)} \$dgoLoad(Iterator<dynamic> ${ctx[vArgs]}){')
       ..writeln('${ir.dartType(file.importer)} ${ctx[vHolder]};')
       ..pipe(ir.writeSnippet$dgoLoad(ctx))
       ..if_(
         ir is OpStruct,
-        () => file.writeln(
-            'return DgoTypeLoadResult(${ctx[vIndex]}, ${ctx[vHolder]});'),
-        () => file.writeln(
-            'return DgoTypeLoadResult(${ctx[vIndex]}, $entryName(${ctx[vHolder]}));'),
+        () => file.writeln('return ${ctx[vHolder]};'),
+        () => file.writeln('return $entryName(${ctx[vHolder]});'),
       )
       ..writeln('}');
 

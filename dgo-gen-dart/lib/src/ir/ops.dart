@@ -21,6 +21,7 @@ abstract class IR {
         goSize = m['GoSize'];
   factory IR.fromJSON(Map m) => _buildIR(m as JsonMap);
   String dartType(Importer context);
+  String outerDartType(Importer context) => dartType(context);
 
   void writeSnippet$dgoLoad(GeneratorContext ctx);
   void writeSnippet$dgoStore(GeneratorContext ctx);
@@ -31,6 +32,10 @@ abstract class Namable extends IR {
   Namable(JsonMap m)
       : myUri = m.myUri,
         super(m);
+
+  @override
+  String outerDartType(Importer context) =>
+      isNamed ? context.qualifyUri(myUri!) : dartType(context);
 }
 
 extension on Namable {
