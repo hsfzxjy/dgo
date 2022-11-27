@@ -66,10 +66,11 @@ class OpArray extends Namable {
 
   @override
   void writeSnippet$dgoStore(GeneratorContext ctx) {
+    final elementName = ctx.pickUnique('\$element');
     ctx.buffer
       ..writeln('for (var i=0;i<$len;i++){')
-      ..writeln('final \$element = ${ctx[vHolder]}$_snippetQualifier[i];')
-      ..pipe(elem.writeSnippet$dgoStore(ctx.withSymbol(vHolder, '\$element')))
+      ..writeln('final $elementName = ${ctx[vHolder]}$_snippetQualifier[i];')
+      ..pipe(elem.writeSnippet$dgoStore(ctx.withSymbol(vHolder, elementName)))
       ..writeln('}');
   }
 }
