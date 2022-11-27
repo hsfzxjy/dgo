@@ -100,16 +100,17 @@ func loadIntoString(src, idx, dst Code) *Statement {
 }
 
 func loadIntoInt(src, idx, dst, dstType Code) *Statement {
-	return If(Id("arr").Index(Id("_index_")).Dot("Type").
-		Op("==").
-		Qual(dgoMod, "Dart_CObject_kInt32")).
-		BlockFunc(func(g *Group) {
-			g.Add(loadIntoBasic(src, idx, Qual("C", "int32_t"), dst, dstType))
-		}).
-		Else().
-		BlockFunc(func(g *Group) {
-			g.Add(loadIntoBasic(src, idx, Qual("C", "int64_t"), dst, dstType))
-		})
+	return Block(
+		Id("_obj_").Op(":=").Add(src).Index(idx),
+		If(Id("_obj_").Dot("Type").
+			Op("==").
+			Qual(dgoMod, "Dart_CObject_kInt32")).
+			Block(
+				loadIntoBasic(Id("_obj_"), Qual("C", "int32_t"), dst, dstType)).
+			Else().
+			Block(
+				loadIntoBasic(Id("_obj_"), Qual("C", "int64_t"), dst, dstType)),
+	)
 }
 
 func loadBasic(t *ir.Basic, g *Group) {
