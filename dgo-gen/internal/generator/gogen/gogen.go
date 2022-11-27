@@ -545,7 +545,7 @@ func (d *Generator) buildStub(dstDir string, pkgName string) {
 		Comment("//go:linkname dgoPostCObjects github.com/hsfzxjy/dgo/go.dgo__PostCObjects").
 		Line().
 		Func().Id("dgoPostCObjects").
-		Params(Int(), Op("*").Qual(dgoMod, "Dart_CObject")).
+		Params(Op("*").Qual(dgoMod, "Port"), Int(), Op("*").Qual(dgoMod, "Dart_CObject")).
 		Line().
 		Line().
 		Var().Id("_").Qual("unsafe", "Pointer").
