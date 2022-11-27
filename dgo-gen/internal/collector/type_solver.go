@@ -125,6 +125,9 @@ SWITCH:
 }
 
 func (r *typeSolver) printPath() string {
+	if len(r.layers) == 0 {
+		return ""
+	}
 	b := strings.Builder{}
 	b.WriteString(fmt.Sprintf("\n\ttype = %s", r.layers[0].typ))
 	for _, a := range r.layers {
@@ -205,5 +208,7 @@ func (r *typeSolver) isTypeNamed() bool {
 }
 
 func isOptional(obj types.Object) bool {
-	return obj.Pkg().Path() == "github.com/hsfzxjy/dgo/go" && obj.Name() == "Optional"
+	return obj.Pkg() != nil &&
+		obj.Pkg().Path() == "github.com/hsfzxjy/dgo/go" &&
+		obj.Name() == "Optional"
 }

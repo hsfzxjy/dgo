@@ -17,6 +17,9 @@ func NewNameSolver(m interfaces.Storage) *NameSolver {
 }
 
 func (r *NameSolver) HasTypeName(obj *types.TypeName) bool {
+	if obj.Pkg() == nil {
+		return false
+	}
 	pkg := r.PackageOf(obj.Pkg().Path())
 	return pkg.HasType(obj.Name())
 }
