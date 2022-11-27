@@ -46,13 +46,55 @@ class GoMethod implements _Serializable {
 
   const GoMethod(this._funcId, this._port);
 
-  void call(List args, int n, int cb) {
-    _port._postList(<dynamic>[this, cb].followedBy(args));
-  }
-
   @override
   int get _payload => _funcId;
 
   @override
   final _kind = _SpecialIntKind.goMethod;
+
+  Future<T> _call<T>(
+      List args, Future<T> future, DartCallback callback, Duration? timeout) {
+    _port._postList(<dynamic>[this, callback].followedBy(args));
+    if (timeout == null) return future;
+    return future.timeout(timeout, onTimeout: () async {
+      callback.remove();
+      throw 'The Go method invocation fails to respond in $timeout';
+    });
+  }
+
+  Future<List<dynamic>> callWithResult(List args,
+      {required bool hasError, Duration? timeout}) {
+    final completer = Completer<List<dynamic>>();
+    DartCallback callback;
+    if (!hasError) {
+      callback = _port.pend(completer.complete);
+    } else {
+      callback = _port.pend((List<dynamic> args) {
+        String? error = args[0];
+        if (error == null) {
+          completer.complete(args.sublist(1));
+        } else {
+          completer.completeError(error);
+        }
+      });
+    }
+    return _call(args, completer.future, callback, timeout);
+  }
+
+  Future<void> call(List args, {required bool hasError, Duration? timeout}) {
+    final completer = Completer<void>();
+    DartCallback callback;
+    if (!hasError) {
+      callback = _port.pend(completer.complete);
+    } else {
+      callback = _port.pend((String? error) {
+        if (error == null) {
+          completer.complete();
+        } else {
+          completer.completeError(error);
+        }
+      });
+    }
+    return _call(args, completer.future, callback, timeout);
+  }
 }
