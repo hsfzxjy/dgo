@@ -3,7 +3,9 @@ package gogen
 import (
 	"fmt"
 	"go/types"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	. "github.com/dave/jennifer/jen"
@@ -575,7 +577,25 @@ func (d *Generator) AddType(etype *exported.Type) {
 	d.buildFunctionsForType(etype, file)
 }
 
+func (d *Generator) clearOldGeneration() {
+	visited := make(map[string]struct{})
+	for filename := range d.files {
+		dir := path.Dir(filename)
+		if _, ok := visited[dir]; ok {
+			continue
+		}
+		paths, err := filepath.Glob(path.Join(dir, "*.dgo.go"))
+		if err != nil {
+			continue
+		}
+		for _, path := range paths {
+			os.Remove(path)
+		}
+	}
+}
+
 func (d *Generator) Save() {
+	d.clearOldGeneration()
 	for fileName, file := range d.files {
 		err := file.Save(fileName)
 		exception.Die(err)
