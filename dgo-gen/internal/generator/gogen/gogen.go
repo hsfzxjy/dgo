@@ -57,14 +57,14 @@ RETURN:
 	return &s
 }
 
-func loadIntoBasic(src, idx, srcType, dst, dstType Code) *Statement {
+func loadIntoBasic(src, srcType, dst, dstType Code) *Statement {
 	return Op("*").Add(dst).Op("=").
 		Add(dstType).
 		Parens(
 			Op("*").
 				Parens(Op("*").Add(srcType)).
 				Parens(
-					Qual("unsafe", "Pointer").Parens(Op("&").Add(src).Index(idx).Dot("Value"))))
+					Qual("unsafe", "Pointer").Parens(Op("&").Add(src).Dot("Value"))))
 }
 
 func loadIntoString(src, idx, dst Code) *Statement {
@@ -116,11 +116,11 @@ func loadBasic(t *ir.Basic, g *Group) {
 	info := t.TypeInfo
 	switch {
 	case info&types.IsBoolean != 0:
-		g.Add(loadIntoBasic(Id("arr"), Id("_index_"), Qual("C", "bool"), Id("o"), Id("bool")))
+		g.Add(loadIntoBasic(Id("arr").Index(Id("_index_")), Qual("C", "bool"), Id("o"), Id("bool")))
 	case info&types.IsInteger != 0:
 		g.Add(loadIntoInt(Id("arr"), Id("_index_"), Id("o"), Id(t.TypeName)))
 	case info&types.IsFloat != 0:
-		g.Add(loadIntoBasic(Id("arr"), Id("_index_"), Qual("C", "double"), Id("o"), Id(t.TypeName)))
+		g.Add(loadIntoBasic(Id("arr").Index(Id("_index_")), Qual("C", "double"), Id("o"), Id(t.TypeName)))
 	case info&types.IsString != 0:
 		g.Add(loadIntoString(Id("arr"), Id("_index_"), Id("o")))
 	}
