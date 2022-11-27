@@ -87,7 +87,7 @@ SWITCH:
 			goto SWITCH
 		}
 		if !r.HasTypeName(typ.Obj()) {
-			r.throwAt(typ.Obj(), "type not marked as exported: %s", typ)
+			r.throwAt(obj, "type not marked as exported: %s", typ)
 		}
 		r.push(tlkTypedef, ityp, ir.NewCoerce(typ.Obj(), r.UriFor(typ.Obj())))
 		defer r.pop()
