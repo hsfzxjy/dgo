@@ -31,6 +31,7 @@ func NewPackage(ppkg *packages.Package, ctx *collector.Context, isDep bool) *Pac
 				Object:   object,
 				PPackage: ppkg,
 				TypeId:   ctx.NextTypeId(),
+				Methods:  []TypeMethod{},
 			})
 		},
 		func(funcName, recvName string, recvPointer bool) {
@@ -38,6 +39,7 @@ func NewPackage(ppkg *packages.Package, ctx *collector.Context, isDep bool) *Pac
 				Context:         ctx,
 				PPackage:        ppkg,
 				Name:            funcName,
+				Params:          []FunctionParam{},
 				ReceiverName:    recvName,
 				ReceiverPointer: recvPointer,
 				FuncId:          ctx.NextMethodId(),
