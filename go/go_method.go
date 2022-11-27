@@ -1,6 +1,6 @@
 package dgo
 
-type MethodCallImplFunc func([]*Dart_CObject)
+type MethodCallImplFunc func(*Port, []*Dart_CObject)
 
 type MethodCallId uint32
 
@@ -18,5 +18,5 @@ type invokingGoMethod struct {
 
 func (m invokingGoMethod) specialInt() {}
 func (m invokingGoMethod) handleCObjects(objs []*Dart_CObject) {
-	methodCallMap[m.id](objs)
+	methodCallMap[m.id](m.port, objs)
 }
