@@ -152,6 +152,14 @@ func NewField(name string, directive string) (*Field, error) {
 	return t, nil
 }
 
+func (f *Field) DartName() string {
+	if f.RenameInDart != "" {
+		return f.RenameInDart
+	} else {
+		return f.Name
+	}
+}
+
 func (f *Field) AddChild(t Term) { f.Term = t }
 func (f *Field) Traverse(visitPre, visitPost visitor) {
 	visitPre.Call(f)
@@ -169,6 +177,15 @@ func NewStruct() *Struct {
 	t := &Struct{Fields: []*Field{}}
 	t.initHeader("Struct")
 	return t
+}
+
+func (s *Struct) IsFieldNameConflicted(name string) bool {
+	for _, field := range s.Fields {
+		if field.DartName() == name {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Struct) AddChild(t Term) { s.Fields = append(s.Fields, t.(*Field)) }

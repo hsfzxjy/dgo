@@ -97,7 +97,8 @@ SWITCH:
 		if !r.isTypeNamed() {
 			r.throwAt(obj, "anonymous type is not exportable")
 		}
-		r.push(tlkOther, typ, ir.NewStruct())
+		irStruct := ir.NewStruct()
+		r.push(tlkOther, typ, irStruct)
 		defer r.pop()
 		for i := 0; i < typ.NumFields(); i++ {
 			field := typ.Field(i)
@@ -108,6 +109,9 @@ SWITCH:
 				tag := reflect.StructTag(typ.Tag(i))
 				directive, _ := tag.Lookup("dgo")
 				irField, err = ir.NewField(field.Name(), directive)
+				if irStruct.IsFieldNameConflicted(irField.DartName()) {
+					r.throwAt(field, "conflicted field name: %s", irField.DartName())
+				}
 				if err != nil {
 					r.throwAt(field, "bad directive `dgo`: %s", err)
 				}
