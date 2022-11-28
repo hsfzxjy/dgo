@@ -42,11 +42,14 @@ tidy_dart = (cd $(WORK_DIR)/$1; dart run import_sorter:main; dart fix --apply)
 .PHONY: tidy
 tidy:
 	$(call tidy_go,go)
+	$(call tidy_go,tests/test_basic/go)
 	$(call tidy_go,dgo-gen)
+	$(call tidy_go,tests/test_gen/go)
 
 	$(call tidy_dart,dart)
 	$(call tidy_dart,tests/test_basic/dart)
 	$(call tidy_dart,dgo-gen-dart)
+	$(call tidy_dart,tests/test_gen/dart)
 
 .PHONY: test_gen
 test_gen:
