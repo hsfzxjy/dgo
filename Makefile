@@ -35,8 +35,8 @@ define integration_test
 	dart run test --reporter=expanded --debug --chain-stack-traces
 endef
 
-.PHONY: test
-test:
+.PHONY: test_basic
+test_basic:
 	$(call integration_test,test_basic)
 
 tidy_go = (cd $(WORK_DIR)/$1; go mod tidy; go fmt)
