@@ -28,6 +28,18 @@ dart/lib/dgo_binding.dart: build/include/go.h $(wildcard go/*.h) dart/pubspec.ya
 .PHONY: ffigen
 ffigen: dart/lib/dgo_binding.dart
 
+.PHONY: tidy
+tidy:
+	$(call tidy_go,go)
+	$(call tidy_go,tests/test_basic/go)
+	$(call tidy_go,dgo-gen)
+	$(call tidy_go,tests/test_gen/go)
+
+	$(call tidy_dart,dart)
+	$(call tidy_dart,tests/test_basic/dart)
+	$(call tidy_dart,dgo-gen-dart)
+	$(call tidy_dart,tests/test_gen/dart)
+
 define integration_test
 	cd $(WORK_DIR)/tests/$1/go; \
 	make; \
@@ -41,18 +53,6 @@ test_basic:
 
 tidy_go = (cd $(WORK_DIR)/$1; go mod tidy; go fmt)
 tidy_dart = (cd $(WORK_DIR)/$1; dart run import_sorter:main; dart fix --apply)
-
-.PHONY: tidy
-tidy:
-	$(call tidy_go,go)
-	$(call tidy_go,tests/test_basic/go)
-	$(call tidy_go,dgo-gen)
-	$(call tidy_go,tests/test_gen/go)
-
-	$(call tidy_dart,dart)
-	$(call tidy_dart,tests/test_basic/dart)
-	$(call tidy_dart,dgo-gen-dart)
-	$(call tidy_dart,tests/test_gen/dart)
 
 .PHONY: test_gen
 test_gen:
