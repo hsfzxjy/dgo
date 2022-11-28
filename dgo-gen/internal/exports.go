@@ -9,6 +9,7 @@ import (
 	"github.com/hsfzxjy/dgo/dgo-gen/internal/exception"
 	"github.com/hsfzxjy/dgo/dgo-gen/internal/exported"
 	"github.com/hsfzxjy/dgo/dgo-gen/internal/generator"
+	"github.com/hsfzxjy/dgo/dgo-gen/internal/generator/dartgen"
 	"github.com/hsfzxjy/dgo/dgo-gen/internal/generator/gogen"
 	"github.com/hsfzxjy/dgo/dgo-gen/internal/generator/irgen"
 	"github.com/hsfzxjy/dgo/dgo-gen/internal/interfaces"
@@ -63,6 +64,7 @@ func (ex *Exports) Dump() {
 	generators := []generator.Interface{
 		&gogen.Generator{},
 		&irgen.Generator{},
+		&dartgen.Generator{},
 	}
 	for _, generator := range generators {
 		for _, epkg := range ex.Packages {
