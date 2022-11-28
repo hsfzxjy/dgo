@@ -28,13 +28,16 @@ dart/lib/dgo_binding.dart: build/include/go.h $(wildcard go/*.h) dart/pubspec.ya
 .PHONY: ffigen
 ffigen: dart/lib/dgo_binding.dart
 
+define integration_test
+	cd $(WORK_DIR)/tests/$1/go; \
+	make; \
+	cd ../dart; \
+	dart run test --reporter=expanded --debug --chain-stack-traces
+endef
+
 .PHONY: test
 test:
-	cd tests/test_basic/go
-	make
-	cd ../dart
-	dart run ffigen
-	dart run test --reporter=expanded --debug
+	$(call integration_test,test_basic)
 
 tidy_go = (cd $(WORK_DIR)/$1; go mod tidy; go fmt)
 tidy_dart = (cd $(WORK_DIR)/$1; dart run import_sorter:main; dart fix --apply)
@@ -54,10 +57,7 @@ tidy:
 .PHONY: test_gen
 test_gen:
 	go run github.com/hsfzxjy/dgo/dgo-gen tests/test_gen/go
-	cd tests/test_gen/go
-	make
-	cd ../dart
-	dart run test --reporter=expanded --debug --chain-stack-traces
+	$(call integration_test,test_gen)
 
 .PHONY: run
 run:
