@@ -1,0 +1,7 @@
+dart-project:
+  path: ../dart/
+  generated-in: lib/generated/
+
+packages:
+  renames:
+    - github.com/hsfzxjy/dgo/tests/test_gen/go: test_gen_go
