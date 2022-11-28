@@ -12,8 +12,6 @@ class Param {
 extension _NullableIRExt on IR? {
   String dartType(Importer context) =>
       this == null ? 'void' : this!.dartType(context);
-  String holderType(Importer context) =>
-      this == null ? 'void' : 'List<dynamic>';
 }
 
 extension _IRExt on IR {
