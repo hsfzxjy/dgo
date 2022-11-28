@@ -24,7 +24,7 @@ class Generator {
     config = Config(payload['Config'])..validate();
   }
 
-  void _processEntry(Map<String, dynamic> entry) {
+  void _processEntry(JsonMap entry) {
     final typeId = entry['TypeId'] as int;
     final ir = IR.fromJSON(entry['Term']);
     assert(ir is Namable && ir.myUri != null);
