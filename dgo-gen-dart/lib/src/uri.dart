@@ -2,33 +2,34 @@
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 
+// Project imports:
+import 'generator/generator.dart' show config;
+
 @immutable
 class GoModUri {
-  final String fullName;
   final String name;
   final String subPath;
 
-  static const GoModUri empty = GoModUri(fullName: '', name: '', subPath: '');
+  static const GoModUri empty = GoModUri(name: '', subPath: '');
 
   const GoModUri({
-    required this.fullName,
     required this.name,
     required this.subPath,
   });
 
-  String get dartDirPath => p.join(name, subPath);
+  String get dartDirPath => p.join(config.renames[name] ?? name, subPath);
 
   DartFileUri dartFile(String fileName) =>
       DartFileUri(goMod: this, fileName: fileName);
-  DartFileUri get dartModFile => dartFile('mod.dart');
+  DartFileUri get dartModFile => dartFile('module.dart');
 
   @override
-  int get hashCode => fullName.hashCode + subPath.hashCode;
+  int get hashCode => name.hashCode + subPath.hashCode;
 
   @override
   bool operator ==(Object other) {
     if (other is GoModUri) {
-      return other.fullName == fullName && other.subPath == subPath;
+      return other.name == name && other.subPath == subPath;
     } else {
       return false;
     }
@@ -82,11 +83,7 @@ class EntryUri implements HasGoModUri {
 
   factory EntryUri.fromString(String raw) {
     final parts = raw.split('#');
-    final goMod = GoModUri(
-      fullName: parts[0],
-      name: parts[0].split('/').last.replaceFirst(RegExp(r'^/'), ''),
-      subPath: parts[1],
-    );
+    final goMod = GoModUri(name: parts[0], subPath: parts[1]);
     return EntryUri(goMod: goMod, name: parts[2]);
   }
 }
