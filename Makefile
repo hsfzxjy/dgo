@@ -36,7 +36,7 @@ test:
 	dart run ffigen
 	dart run test --reporter=expanded --debug
 
-tidy_go = (cd $(WORK_DIR)/$1; go mod tidy)
+tidy_go = (cd $(WORK_DIR)/$1; go mod tidy; go fmt)
 tidy_dart = (cd $(WORK_DIR)/$1; dart run import_sorter:main; dart fix --apply)
 
 .PHONY: tidy
