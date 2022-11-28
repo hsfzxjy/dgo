@@ -15,12 +15,14 @@ part 'importer.dart';
 part 'context.dart';
 part 'file.dart';
 part 'fileset.dart';
+part 'config.dart';
 
 class Generator {
-  final Map<String, dynamic> ir;
-  final String destDir;
+  final JsonMap definitions;
   final FileSet fileSet = FileSet();
-  Generator(this.ir, this.destDir);
+  Generator(JsonMap payload) : definitions = payload['Definitions'] {
+    config = Config(payload['Config'])..validate();
+  }
 
   void _processEntry(Map<String, dynamic> entry) {
     final typeId = entry['TypeId'] as int;
