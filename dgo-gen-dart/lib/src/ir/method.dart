@@ -84,6 +84,7 @@ class Method {
           () => ctx.buffer
             ..writeln('{')
             ..writeln('final ${ctx[vArgs]} = (await \$future).iterator;')
+            ..writeln('${ctx[vArgs]}.moveNext();')
             ..writeln('${returnType!.dartType(ctx.importer)} ${ctx[vHolder]};')
             ..pipe(returnType!.writeSnippetLoad(ctx))
             ..writeln('return ${ctx[vHolder]};')
