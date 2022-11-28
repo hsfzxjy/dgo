@@ -4,7 +4,7 @@ type MethodCallImplFunc func(*Port, []*Dart_CObject)
 
 type MethodCallId uint32
 
-var methodCallMap map[MethodCallId]MethodCallImplFunc
+var methodCallMap = map[MethodCallId]MethodCallImplFunc{}
 
 //lint:ignore U1000 Use go:linkname to call this function
 func methodCallRegister(funcId MethodCallId, impl MethodCallImplFunc) {
