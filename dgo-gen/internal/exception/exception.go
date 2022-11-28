@@ -27,7 +27,6 @@ func Exit() { os.Exit(1) }
 
 func Die(err error) {
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "oops: %v\n", err)
-		Exit()
+		panic(err)
 	}
 }
