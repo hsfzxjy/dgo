@@ -349,6 +349,14 @@ func buildFunction_method(etype *exported.Type, method exported.TypeMethod, g *G
 			Id("arr"),
 			Id("_index_"))
 
+	g.Var().Id("callback").Uint64()
+	g.Add(loadIntoBasic(Id("arr").Index(Id("_index_")), Qual("C", "uint64_t"), Op("&").Id("callback"), Uint64()))
+	g.Add(Id("_index_").Op("++"))
+	g.Id("callback").Op("|=").Uint64().Call(Qual(dgoMod, "CF_POP"))
+	if method.Return != nil {
+		g.Id("callback").Op("|=").Uint64().Call(Qual(dgoMod, "CF_PACKARRAY"))
+	}
+
 	for paramId, param := range method.Params {
 		paramName := fmt.Sprintf("arg%d", paramId)
 		g.Var().Id(paramName).Add(typeNameOf(etype, param.Term))
@@ -357,11 +365,6 @@ func buildFunction_method(etype *exported.Type, method exported.TypeMethod, g *G
 			buildFunction_DgoLoad(etype, param.Term, g, &looper{})
 		})
 	}
-
-	g.Var().Id("callback").Uint64()
-	g.Add(loadIntoBasic(Id("arr").Index(Id("_index_")), Qual("C", "uint64_t"), Op("&").Id("callback"), Uint64()))
-	g.Id("callback").Op("|=").Uint64().Call(
-		Qual(dgoMod, "CF_POP").Op("|").Qual(dgoMod, "CF_PACKARRAY"))
 
 	var resultReceiver *Statement = &Statement{}
 	switch {
