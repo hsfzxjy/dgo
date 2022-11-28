@@ -7,9 +7,9 @@ class FileSet {
     return _map.putIfAbsent(fileUri, () => File(fileUri));
   }
 
-  void save(String destDir) {
-    for (var f in _map.values) {
-      f.save(destDir);
+  Future<void> save() async {
+    for (final f in _map.values) {
+      await f.save();
     }
   }
 }

@@ -84,10 +84,23 @@ class Generator {
     file.writeln('}');
   }
 
-  void save() {
-    for (final entry in ir.values) {
+  Future<void> _prepareDirectory() async {
+    final directory = io.Directory(config.generatedInPath);
+    try {
+      await directory.delete(recursive: true);
+    } on io.FileSystemException catch (e) {
+      if (e.osError?.errorCode != 2) {
+        rethrow;
+      }
+    }
+    await directory.create(recursive: true);
+  }
+
+  Future<void> save() async {
+    await _prepareDirectory();
+    for (final entry in definitions.values) {
       _processEntry(entry);
     }
-    fileSet.save(destDir);
+    await fileSet.save();
   }
 }

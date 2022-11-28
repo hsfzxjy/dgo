@@ -14,13 +14,21 @@ class File extends StringBuffer {
     importer.import3Party('dart:async');
   }
 
-  void save(String destDir) {
-    final destP = p.join(destDir, uri.toString());
-    io.Directory(p.dirname(destP)).createSync(recursive: true);
+  String get path => p.join(config.generatedInPath, uri.toString());
+
+  Future<void> _ensureWritable() async {
+    if (!p.isWithin(config.generatedInPath, path)) {
+      throw 'dgo-gen-dart: $path goes out of ${config.generatedInPath}';
+    }
+    await io.Directory(p.dirname(path)).create(recursive: true);
+  }
+
+  Future<void> save() async {
+    await _ensureWritable();
     final buffer = StringBuffer();
     importer.writeTo(buffer);
     buffer.write(this);
-    io.File(destP).writeAsStringSync(_formatter.format(buffer.toString()));
+    await io.File(path).writeAsString(_formatter.format(buffer.toString()));
   }
 
   GeneratorContext asGeneratorContext() => GeneratorContext(this, importer);
