@@ -534,7 +534,7 @@ func (d *Generator) buildStub(dstDir string, pkgName string) {
 	d.files[dstPath] = file
 	file.ImportAlias(dgoMod, "dgo")
 	file.
-		Comment("//go:linkname dgoMethodCallRegister github.com/hsfzxjy/dgo/go.registerMethodCall").
+		Comment("//go:linkname dgoMethodCallRegister github.com/hsfzxjy/dgo/go.methodCallRegister").
 		Line().
 		Func().Id("dgoMethodCallRegister").
 		Params(
