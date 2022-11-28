@@ -50,10 +50,11 @@ tidy:
 
 .PHONY: test_gen
 test_gen:
-	if ! go run github.com/hsfzxjy/dgo/dgo-gen github.com/hsfzxjy/dgo/tests/gen_tests/...; then
-		exit 1
-	fi
-	cd dgo-gen-dart && dart run
+	go run github.com/hsfzxjy/dgo/dgo-gen tests/test_gen/go
+	cd tests/test_gen/go
+	make
+	cd ../dart
+	dart run test --reporter=expanded --debug --chain-stack-traces
 
 .PHONY: run
 run:
