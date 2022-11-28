@@ -393,11 +393,6 @@ func buildFunction_method(etype *exported.Type, method exported.TypeMethod, g *G
 
 	defineArrAndStoreCallback := func(g *Group, nArgs int) {
 		g.Var().Id("arr").Index(Lit(nArgs)).Qual(dgoMod, "Dart_CObject")
-		if method.ReturnError {
-			g.If(Id("err").Op("!=").Nil()).Block(
-				Id("callback").Op("|=").Uint64().Call(Id("cf_fut_reject")),
-			)
-		}
 		g.BlockFunc(func(g *Group) {
 			g.Id("o").Op(":=").Op("&").Id("callback")
 			storeFromInt(g)
@@ -553,9 +548,7 @@ func (d *Generator) buildStub(dstDir string, pkgName string) {
 		Params(Op("*").Qual(dgoMod, "Port"), Int(), Op("*").Qual(dgoMod, "Dart_CObject")).
 		Line().
 		Line().
-		Var().Id("_").Qual("unsafe", "Pointer").
-		Line().
-		Var().Id("cf_fut_reject").Op("=").Qual(dgoMod, "CF_CUSTOM").Call(Lit(7))
+		Var().Id("_").Qual("unsafe", "Pointer")
 }
 
 func (d *Generator) AddType(etype *exported.Type) {
