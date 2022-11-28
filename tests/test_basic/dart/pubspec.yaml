@@ -17,6 +17,10 @@ dependencies:
   dgo:
     path: ../../../dart/
 
+import_sorter:
+  ignored_files:
+    - lib/binding.dart
+
 ffigen:
   output: lib/binding.dart
   name: LibTestBasic
