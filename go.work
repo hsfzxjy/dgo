@@ -1,7 +1,9 @@
 go 1.18
 
 use ./dgo-gen
+
 use ./go
 
 use ./tests/test_basic/go
-use ./tests/gen_tests
+
+use ./tests/test_gen/go
