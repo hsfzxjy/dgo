@@ -26,6 +26,7 @@ class File extends StringBuffer {
   Future<void> save() async {
     await _ensureWritable();
     final buffer = StringBuffer();
+    buffer.writeln('// ignore_for_file: type=lint, unused_local_variable, unused_import');
     importer.writeTo(buffer);
     buffer.write(this);
     await io.File(path).writeAsString(_formatter.format(buffer.toString()));
