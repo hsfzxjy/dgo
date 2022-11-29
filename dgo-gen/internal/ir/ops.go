@@ -1,11 +1,10 @@
 package ir
 
 import (
-	"fmt"
 	"go/types"
-	"strings"
 
 	"github.com/hsfzxjy/dgo/dgo-gen/internal/uri"
+	"github.com/hsfzxjy/dgo/dgo-gen/internal/utils"
 )
 
 type Ident struct {
@@ -129,22 +128,20 @@ type Field struct {
 	RenameInDart string
 }
 
-func NewField(name string, directive string) (*Field, error) {
+func NewField(name string, spec string) (*Field, error) {
 	t := &Field{Name: name, SendToDart: true, SendBackToGo: true}
 
-	actions := strings.Split(directive, ",")
-	for _, action := range actions {
-		switch action {
-		case "!dart":
-			t.SendToDart = false
-			t.SendBackToGo = false
-		case "!go":
-			t.SendBackToGo = false
-		default:
-			if t.RenameInDart != "" {
-				return nil, fmt.Errorf("multiple renames: %q and %q", t.RenameInDart, action)
+	directives := utils.ParseDirectives(spec)
+	if len(directives) > 0 {
+		t.RenameInDart = directives[0]
+		for _, directive := range directives[1:] {
+			switch directive {
+			case "!dart":
+				t.SendToDart = false
+				t.SendBackToGo = false
+			case "!go":
+				t.SendBackToGo = false
 			}
-			t.RenameInDart = action
 		}
 	}
 

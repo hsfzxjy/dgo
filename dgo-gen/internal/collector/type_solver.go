@@ -107,13 +107,13 @@ SWITCH:
 			{
 				var err error
 				tag := reflect.StructTag(typ.Tag(i))
-				directive, _ := tag.Lookup("dgo")
-				irField, err = ir.NewField(field.Name(), directive)
+				spec, _ := tag.Lookup("dgo")
+				irField, err = ir.NewField(field.Name(), spec)
 				if irStruct.IsFieldNameConflicted(irField.DartName()) {
 					r.throwAt(field, "conflicted field name: %s", irField.DartName())
 				}
 				if err != nil {
-					r.throwAt(field, "bad directive `dgo`: %s", err)
+					r.throwAt(field, "bad spec `dgo`: %s", err)
 				}
 			}
 
