@@ -32,9 +32,34 @@ class Generator {
     final file = fileSet[myUri.goMod.dartModFile];
     final entryName = myUri.name;
 
+    final isEnum = entry['IsEnum'] as bool;
+    final enumMembers = entry['EnumMembers'] as List;
+    final constructorName = isEnum ? '.of' : '';
+
     file
-      ..writeln('@immutable')
-      ..writeln('class $entryName {')
+      ..if_(isEnum, () {
+        file
+          ..writeln('enum $entryName {')
+          ..writeln(
+              enumMembers.map((m) => "${m['Name']}(${m['Value']})").join(', '))
+          ..writeln(';')
+          ..writeln('factory $entryName.of(int value) {')
+          ..writeln('switch (value) {')
+          ..for_(enumMembers, (m) {
+            file
+              ..writeln("case ${m['Value']}:")
+              ..writeln("return ${m['Name']};");
+          })
+          ..writeln('default:')
+          ..writeln("throw 'dgo:dart: cannot convert \$value to $entryName';")
+          ..writeln('}')
+          ..writeln('}')
+          ..writeln();
+      }, () {
+        file
+          ..writeln('@immutable')
+          ..writeln('${isEnum ? "enum" : "class"} $entryName {');
+      })
       ..writeln('static const typeId = $typeId;');
 
     file.if_(
@@ -64,7 +89,8 @@ class Generator {
       ..if_(
         ir is OpStruct,
         () => file.writeln('return ${ctx[vHolder]};'),
-        () => file.writeln('return $entryName(${ctx[vHolder]});'),
+        () =>
+            file.writeln('return $entryName$constructorName(${ctx[vHolder]});'),
       )
       ..writeln('}');
 
