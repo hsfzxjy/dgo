@@ -17,3 +17,6 @@ type StructWithRenamedField struct {
 	renamedNoDartField string `dgo:"FieldNoGo,!dart"`
 	renamedNoGoField   string `dgo:"FieldNoDart,!go"`
 }
+
+//dgo:export StructRenamed
+type StructWithAnotherName struct{}
