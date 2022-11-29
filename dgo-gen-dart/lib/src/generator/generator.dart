@@ -108,6 +108,13 @@ class Generator {
       ..writeln('}');
 
     file.writeln('}');
+
+    final rename = entry['Rename'] as String;
+    if (rename.isNotEmpty) {
+      file
+        ..writeln()
+        ..writeln('typedef $rename = $entryName;');
+    }
   }
 
   Future<void> _prepareDirectory() async {
