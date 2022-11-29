@@ -3,41 +3,76 @@ package collector
 import (
 	"go/ast"
 	"go/token"
+	"regexp"
 	"strings"
 
 	"github.com/hsfzxjy/dgo/dgo-gen/internal/exception"
+	"github.com/hsfzxjy/dgo/dgo-gen/internal/utils"
 	"golang.org/x/tools/go/packages"
 )
 
-func (ctx *Context) Collect(
-	ppkg *packages.Package,
-	onType func(typeName string),
-	onFunction func(funcName, recvName string, recvPointer bool),
-) {
-	isExported := func(doc *ast.CommentGroup) bool {
-		return doc != nil && len(doc.List) > 0 && strings.HasPrefix(doc.List[0].Text, "//dgo:export")
+var reDgoExport = regexp.MustCompile(`^//\s*dgo:export(.*)$`)
+
+func parseDgoExported(doc *ast.CommentGroup) (directives []string, isExported bool) {
+	isExported = false
+	if doc == nil || len(doc.List) == 0 {
+		return
 	}
 
+	matches := reDgoExport.FindStringSubmatch(doc.List[0].Text)
+	if len(matches) == 0 {
+		return
+	}
+	isExported = true
+	directives = utils.ParseDirectives(strings.TrimSpace(matches[1]))
+	return
+}
+
+func (ctx *Context) Collect(
+	ppkg *packages.Package,
+	onType func(typeName string, directives []string),
+	onFunction func(funcName, recvName string, recvPointer bool, directives []string),
+	onConst func(constName string, directives []string),
+) {
 	for _, file := range ppkg.Syntax {
 	NEXT_DECL:
 		for _, decl := range file.Decls {
 			switch decl := decl.(type) {
 			case *ast.GenDecl:
-				if decl.Tok != token.TYPE {
-					continue NEXT_DECL
-				}
-				declExported := isExported(decl.Doc)
-				for _, spec := range decl.Specs {
-					spec := spec.(*ast.TypeSpec)
-					if declExported || isExported(spec.Doc) {
-						if spec.Assign != token.NoPos {
-							exception.ThrowAt(ppkg, spec, "type alias is not exportable")
+				var isExported bool
+				var directives []string
+				resolveDoc := func(docs ...*ast.CommentGroup) *ast.CommentGroup {
+					for _, doc := range docs {
+						if doc != nil {
+							return doc
 						}
-						onType(spec.Name.Name)
+					}
+					return decl.Doc
+				}
+				switch decl.Tok {
+				case token.TYPE:
+					for _, spec := range decl.Specs {
+						spec := spec.(*ast.TypeSpec)
+						directives, isExported = parseDgoExported(resolveDoc(spec.Doc))
+						if isExported {
+							if spec.Assign != token.NoPos {
+								exception.ThrowAt(ppkg, spec, "type alias is not exportable")
+							}
+							onType(spec.Name.Name, directives)
+						}
+					}
+				case token.CONST:
+					for _, spec := range decl.Specs {
+						spec := spec.(*ast.ValueSpec)
+						directives, isExported = parseDgoExported(resolveDoc(spec.Comment, spec.Doc))
+						if isExported {
+							onConst(spec.Names[0].Name, directives)
+						}
 					}
 				}
 			case *ast.FuncDecl:
-				if !isExported(decl.Doc) {
+				directives, isExported := parseDgoExported(decl.Doc)
+				if !isExported {
 					continue NEXT_DECL
 				}
 				name := decl.Name.Name
@@ -58,7 +93,7 @@ func (ctx *Context) Collect(
 					recvName = recv.Name
 				}
 
-				onFunction(name, recvName, recvPtr)
+				onFunction(name, recvName, recvPtr, directives)
 			}
 		}
 	}
