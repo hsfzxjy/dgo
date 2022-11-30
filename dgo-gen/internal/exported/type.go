@@ -22,7 +22,7 @@ type Type struct {
 	*collector.Context `json:"-"`
 	PPackage           *packages.Package `json:"-"`
 	Term               ir.Term
-	TypeId             int64
+	TypeId             uint16
 	Methods            []TypeMethod
 	IsEnum             bool
 	EnumMembers        []EnumMember
