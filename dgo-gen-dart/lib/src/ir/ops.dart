@@ -47,6 +47,44 @@ extension on Namable {
 }
 
 @immutable
+class OpSlice extends Namable {
+  final IR elem;
+
+  OpSlice.fromMap(JsonMap m)
+      : elem = m.getIR('Elem'),
+        super(m);
+
+  @override
+  String dartType(Importer context) => 'List<${elem.dartType(context)}>';
+
+  @override
+  void writeSnippet$dgoLoad(GeneratorContext ctx) {
+    ctx.buffer
+      ..writeln('{')
+      ..writeln('final size = ${ctx[vArgs]}.current;${ctx[vArgs]}.moveNext();')
+      ..writeln('${ctx[vHolder]} = List.generate(size, (index) {')
+      ..writeln('${elem.dartType(ctx.importer)} instance;')
+      ..pipe(elem.writeSnippet$dgoLoad(ctx.withSymbol(vHolder, 'instance')))
+      ..writeln('return instance;')
+      ..writeln('}, growable: false);')
+      ..writeln('}');
+  }
+
+  @override
+  void writeSnippet$dgoStore(GeneratorContext ctx) {
+    final elementName = ctx.pickUnique('\$element');
+    ctx.buffer
+      ..writeln(
+          '${ctx[vArgs]}[${ctx[vIndex]}] = ${ctx[vHolder]}$_snippetQualifier.length;')
+      ..writeln('${ctx[vIndex]}++;')
+      ..writeln('for (var i=0;i<${ctx[vHolder]}$_snippetQualifier.length;i++){')
+      ..writeln('final $elementName = ${ctx[vHolder]}$_snippetQualifier[i];')
+      ..pipe(elem.writeSnippet$dgoStore(ctx.withSymbol(vHolder, elementName)))
+      ..writeln('}');
+  }
+}
+
+@immutable
 class OpArray extends Namable {
   final int len;
   final IR elem;
