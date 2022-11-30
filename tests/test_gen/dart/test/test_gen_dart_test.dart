@@ -32,5 +32,10 @@ void main() async {
       expectLater(
           () => Tester().ReturnsStringOrError(false), throwsA(equals('error')));
     });
+
+    test('ReturnsExternalType', () async {
+      final result = await Tester().ReturnsExternalType();
+      expect(result.FieldString, 'string');
+    });
   });
 }

@@ -1,6 +1,10 @@
 package main
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/hsfzxjy/dgo/tests/test_gen/go/internal/subpack"
+)
 
 //dgo:export
 type Tester struct{}
@@ -21,6 +25,11 @@ func (Tester) ReturnsStringOrError(success bool) (string, error) {
 	} else {
 		return "", errors.New("error")
 	}
+}
+
+//dgo:export
+func (Tester) ReturnsExternalType() subpack.StructInSubpack {
+	return subpack.StructInSubpack{FieldString: "string"}
 }
 
 func main() {}
