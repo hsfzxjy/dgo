@@ -2,6 +2,7 @@ package irgen
 
 import (
 	"encoding/json"
+	"os"
 
 	"github.com/hsfzxjy/dgo/dgo-gen/internal/config"
 	"github.com/hsfzxjy/dgo/dgo-gen/internal/exception"
@@ -31,6 +32,12 @@ func (d *Generator) Save() {
 	var err error
 	MarshaledPayload, err = json.MarshalIndent(d.payload, "", "  ")
 	exception.Die(err)
+	if config.Opts.IrFile != "" {
+		file, err := os.Create(config.Opts.IrFile)
+		exception.Die(err)
+		defer file.Close()
+		file.Write(MarshaledPayload)
+	}
 }
 
 var MarshaledPayload []byte
