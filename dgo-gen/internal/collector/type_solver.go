@@ -68,6 +68,11 @@ SWITCH:
 		default:
 			r.throwAt(obj, "not exportable type: %s", typ.String())
 		}
+	case *types.Slice:
+		r.push(tlkElem, typ, ir.NewSlice())
+		defer r.pop()
+		ityp = typ.Elem()
+		goto SWITCH
 	case *types.Array:
 		r.push(tlkElem, typ, ir.NewArray(int(typ.Len())))
 		defer r.pop()

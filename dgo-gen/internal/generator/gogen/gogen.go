@@ -34,6 +34,9 @@ LOOP:
 		case *ir.Array:
 			s.Index(Lit(t.Len))
 			term = t.Elem
+		case *ir.Slice:
+			s.Index()
+			term = t.Elem
 		case *ir.Coerce:
 			ident = t.Ident
 			goto HANDLE_IDENT
@@ -192,6 +195,24 @@ func buildFunction_DgoLoad(etype *exported.Type, term ir.Term, g *Group, looper 
 		} else {
 			g.Id("_").Op("=").Op("o")
 		}
+	case *ir.Slice:
+		g.Var().Id("size").Int()
+		g.Add(loadIntoInt(Id("arr"), Id("_index_"), Op("&").Id("size"), Int()))
+		g.Id("_index_").Op("++")
+		g.Op("*").Id("o").Op("=").Make(typeNameOf(etype, t), Id("size"))
+		Looper := looper.BeginRep()
+		g.
+			For(
+				Looper.Clone().Op(":=").Lit(0),
+				Looper.Clone().Op("<").Id("size"),
+				Looper.Clone().Op("++")).
+			BlockFunc(func(g *Group) {
+				g.Id("o").
+					Op(":=").
+					Op("&").Parens(Op("*").Id("o")).Index(Looper)
+				buildFunction_DgoLoad(etype, t.Elem, g, looper)
+			})
+		looper.EndRep()
 	case *ir.Optional:
 		g.
 			If(Empty().
@@ -321,6 +342,24 @@ func buildFunction_DgoStore(etype *exported.Type, term ir.Term, g *Group, looper
 		} else {
 			g.Id("_").Op("=").Op("o")
 		}
+	case *ir.Slice:
+		g.BlockFunc(func(g *Group) {
+			g.Id("size").Op(":=").Len(Op("*").Id("o"))
+			g.Id("o").Op(":=&").Id("size")
+			storeFromInt(g)
+			g.Id("_index_").Op("++")
+		})
+		Looper := looper.BeginRep()
+		g.
+			For(
+				Looper.Clone().Op(":=").Lit(0),
+				Looper.Clone().Op("<").Len(Op("*").Id("o")),
+				Looper.Clone().Op("++")).
+			BlockFunc(func(g *Group) {
+				g.Add(Id("o").Op(":=").Op("&").Parens(Op("*").Id("o")).Index(Looper))
+				buildFunction_DgoStore(etype, t.Elem, g, looper)
+			})
+		looper.EndRep()
 	case *ir.Optional:
 		g.Id("cobj").
 			Op("=").
@@ -391,8 +430,18 @@ func buildFunction_method(etype *exported.Type, method exported.TypeMethod, g *G
 	g.Id("keepAlive").Op(":=").Op("&").Id("keepAliveArr")
 	g.Id("_index_").Op("=").Lit(0)
 
-	defineArrAndStoreCallback := func(g *Group, nArgs int) {
-		g.Var().Id("arr").Index(Lit(nArgs)).Qual(dgoMod, "Dart_CObject")
+	defineArrAndStoreCallback := func(g *Group, nExtraArgs int) {
+		r := method.Return
+		if ir.IsDartSizeDynamic(r) {
+			g.Id("size").Op(":=").Lit(nExtraArgs)
+			g.BlockFunc(func(g *Group) {
+				g.Id("o").Op(":=&").Id("result")
+				buildFunction_DgoDartSize(etype, r, g, new(looper))
+			})
+			g.Id("arr").Op(":=").Make(Index().Qual(dgoMod, "Dart_CObject"), Id("size"))
+		} else {
+			g.Var().Id("arr").Index(Lit(nExtraArgs+ir.DartSizeof(r))).Qual(dgoMod, "Dart_CObject")
+		}
 		g.BlockFunc(func(g *Group) {
 			g.Id("o").Op(":=").Op("&").Id("callback")
 			storeFromInt(g)
@@ -423,11 +472,11 @@ func buildFunction_method(etype *exported.Type, method exported.TypeMethod, g *G
 	g.BlockFunc(func(g *Group) {
 		switch {
 		case method.Return != nil && method.ReturnError:
-			defineArrAndStoreCallback(g, 2+ir.DartSizeof(method.Return))
+			defineArrAndStoreCallback(g, 2)
 			storeErr(g)
 			storeResult(g)
 		case method.Return != nil:
-			defineArrAndStoreCallback(g, 1+ir.DartSizeof(method.Return))
+			defineArrAndStoreCallback(g, 1)
 			storeResult(g)
 		case method.ReturnError:
 			defineArrAndStoreCallback(g, 2)
@@ -445,6 +494,75 @@ func buildFunction_method(etype *exported.Type, method exported.TypeMethod, g *G
 	})
 }
 
+func buildFunction_DgoDartSize(etype *exported.Type, term ir.Term, g *Group, looper *looper) {
+	if !ir.IsDartSizeDynamic(term) {
+		g.Id("size").Op("+=").Lit(ir.GoSizeof(term))
+		g.Id("_").Op("=").Id("o")
+		return
+	}
+	switch t := term.(type) {
+	case *ir.Struct:
+		for _, f := range t.Fields {
+			if !f.SendToDart {
+				continue
+			}
+			buildFunction_DgoDartSize(etype, f, g, looper)
+		}
+	case *ir.Field:
+		g.BlockFunc(func(g *Group) {
+			g.Id("o").Op(":=").Op("&").Id("o").Dot(t.Name)
+			buildFunction_DgoDartSize(etype, t.Term, g, looper)
+		})
+	case *ir.PtrTo:
+		g.BlockFunc(func(g *Group) {
+			g.Id("o").Op(":=").Op("*").Id("o")
+			buildFunction_DgoDartSize(etype, t.Elem, g, looper)
+		})
+	case *ir.Coerce:
+		g.Id("size").Op("+=").Id("o").Dot("DgoDartSize").Call()
+	case *ir.Array:
+		if t.Len > 0 {
+			Looper := looper.BeginRep()
+			g.
+				For(
+					Looper.Clone().Op(":=").Lit(0),
+					Looper.Clone().Op("<").Lit(int(t.Len)),
+					Looper.Clone().Op("++")).
+				BlockFunc(func(g *Group) {
+					g.Add(Id("o").Op(":=").Op("&").Id("o").Index(Looper))
+					buildFunction_DgoDartSize(etype, t.Elem, g, looper)
+				})
+			looper.EndRep()
+		} else {
+			g.Id("_").Op("=").Op("o")
+		}
+	case *ir.Slice:
+		if !ir.IsDartSizeDynamic(t.Elem) {
+			g.Id("size").Op("+=").Len(Op("*").Id("o")).Op("*").Lit(ir.DartSizeof(t.Elem)).Op("+").Lit(1)
+			return
+		}
+		Looper := looper.BeginRep()
+		g.
+			For(
+				Looper.Clone().Op(":=").Lit(0),
+				Looper.Clone().Op("<").Len(Op("*").Id("o")),
+				Looper.Clone().Op("++")).
+			BlockFunc(func(g *Group) {
+				g.Add(Id("o").Op(":=").Op("&").Parens(Op("*").Id("o")).Index(Looper))
+				buildFunction_DgoDartSize(etype, t.Elem, g, looper)
+			})
+		looper.EndRep()
+		g.Id("size").Op("++")
+	case *ir.Optional:
+		g.If(Id("o").Dot("IsSome").Call()).
+			BlockFunc(func(g *Group) {
+				g.Id("o").Op(":=").Op("&").Id("o").Dot("Value")
+				buildFunction_DgoDartSize(etype, t.Term, g, looper)
+			}).Else().
+			Block(Id("size").Op("+=").Lit(1))
+	}
+}
+
 type Generator struct {
 	files map[string]*File
 }
@@ -456,21 +574,14 @@ func (d *Generator) buildFunctionsForType(etype *exported.Type, file *File) {
 		Line()
 
 	file.Func().
-		Params(Op("*").Id(name)).
-		Id("DgoGoSize").
-		Params().
-		Int().
-		Block(
-			Return(Lit(ir.GoSizeof(etype.Term)))).
-		Line()
-
-	file.Func().
-		Params(Op("*").Id(name)).
+		Params(Id("o").Op("*").Id(name)).
 		Id("DgoDartSize").
 		Params().
-		Int().
-		Block(
-			Return(Lit(ir.DartSizeof(etype.Term)))).
+		Parens(List(Id("size").Int())).
+		BlockFunc(func(g *Group) {
+			buildFunction_DgoDartSize(etype, etype.Term, g, new(looper))
+			g.Return()
+		}).
 		Line()
 
 	file.Func().

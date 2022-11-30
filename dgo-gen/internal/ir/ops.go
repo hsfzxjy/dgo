@@ -38,6 +38,26 @@ type HasIdent interface {
 func (i *termIdent) GetIdent() *Ident      { return i.Ident }
 func (i *termIdent) SetIdent(ident *Ident) { i.Ident = ident }
 
+type Slice struct {
+	termHeader
+	termIdent
+	Elem Term
+}
+
+func NewSlice() *Slice {
+	t := &Slice{}
+	t.initHeader("Slice")
+	return t
+}
+
+func (s *Slice) AddChild(t Term) { s.Elem = t }
+
+func (s *Slice) Traverse(visitPre, visitPost visitor) {
+	visitPre.Call(s)
+	s.Elem.Traverse(visitPre, visitPost)
+	visitPost.Call(s)
+}
+
 type Array struct {
 	termHeader
 	termIdent
