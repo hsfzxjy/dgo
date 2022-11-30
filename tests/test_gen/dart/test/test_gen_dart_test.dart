@@ -33,6 +33,12 @@ void main() async {
           () => Tester().ReturnsStringOrError(false), throwsA(equals('error')));
     });
 
+    test('ReturnsSlice', () async {
+      final f = Tester().ReturnsSlice;
+      expect(await f(1), equals(['0']));
+      expect(await f(2), equals(['0', '1']));
+    });
+
     test('ReturnsExternalType', () async {
       final result = await Tester().ReturnsExternalType();
       expect(result.FieldString, 'string');

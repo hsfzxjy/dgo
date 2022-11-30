@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"strconv"
 
 	"github.com/hsfzxjy/dgo/tests/test_gen/go/internal/subpack"
 )
@@ -25,6 +26,14 @@ func (Tester) ReturnsStringOrError(success bool) (string, error) {
 	} else {
 		return "", errors.New("error")
 	}
+}
+
+//dgo:export
+func (Tester) ReturnsSlice(n int) (ret []string) {
+	for i := 0; i < n; i++ {
+		ret = append(ret, strconv.Itoa(i))
+	}
+	return
 }
 
 //dgo:export
