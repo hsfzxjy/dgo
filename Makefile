@@ -56,7 +56,9 @@ tidy_dart = (cd $(WORK_DIR)/$1; dart run import_sorter:main; dart fix --apply)
 
 .PHONY: test_gen
 test_gen:
-	go run github.com/hsfzxjy/dgo/dgo-gen tests/test_gen/go
+	if ! go run github.com/hsfzxjy/dgo/dgo-gen tests/test_gen/go -i ../_build/ir.json; then
+		exit 1
+	fi
 	$(call integration_test,test_gen)
 
 .PHONY: run
