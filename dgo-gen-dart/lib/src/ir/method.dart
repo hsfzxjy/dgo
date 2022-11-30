@@ -20,11 +20,9 @@ extension _IRExt on IR {
       final myUri = (this as Namable).myUri!;
       ctx.buffer
         ..writeln('{')
-        ..writeln('final \$result = ')
+        ..writeln('${ctx[vHolder]} = ')
         ..writeln(ctx.importer.qualifyUri(myUri))
-        ..writeln('.\$dgoLoad(${ctx[vArgs]},${ctx[vIndex]});')
-        ..writeln('${ctx[vHolder]} = \$result.result;')
-        ..writeln('${ctx[vIndex]} = \$result.nextIndex;')
+        ..writeln('.\$dgoLoad(${ctx[vArgs]});')
         ..writeln('}');
     } else {
       writeSnippet$dgoLoad(ctx);
