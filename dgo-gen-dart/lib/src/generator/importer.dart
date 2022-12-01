@@ -11,7 +11,7 @@ class Importer {
     return imports.putIfAbsent(dartFileUri.relativeTo(currentFileUri.goMod),
         () {
       _num++;
-      return 'i$_num';
+      return '\$i$_num';
     });
   }
 
