@@ -39,6 +39,12 @@ void main() async {
       expect(await f(2), equals(['0', '1']));
     });
 
+    test('ReturnsMap', () async {
+      final f = Tester().ReturnsMap;
+      expect(await f(1), equals({0: '0'}));
+      expect(await f(2), equals({0: '0', 1: '1'}));
+    });
+
     test('ReturnsExternalType', () async {
       final result = await Tester().ReturnsExternalType();
       expect(result.FieldString, 'string');

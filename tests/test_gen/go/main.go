@@ -37,6 +37,15 @@ func (Tester) ReturnsSlice(n int) (ret []string) {
 }
 
 //dgo:export
+func (Tester) ReturnsMap(n int) (ret map[int]string) {
+	ret = make(map[int]string)
+	for i := 0; i < n; i++ {
+		ret[i] = strconv.Itoa(i)
+	}
+	return
+}
+
+//dgo:export
 func (Tester) ReturnsExternalType() subpack.StructInSubpack {
 	return subpack.StructInSubpack{FieldString: "string"}
 }
