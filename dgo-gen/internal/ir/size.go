@@ -50,7 +50,7 @@ func fillSize(t Term, getSize func(Term) *int, skip func(Term) bool) {
 			if cntSize == *baseSize {
 				cntSize++
 			}
-		case *Slice:
+		case *Slice, *Map:
 			*top() = isdynamic(true)
 		}
 		*baseSize = cntSize - *baseSize

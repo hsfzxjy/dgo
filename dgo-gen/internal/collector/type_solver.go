@@ -12,7 +12,7 @@ import (
 
 func (ctx *Context) SolveType(obj types.Object) ir.Term {
 	solver := NewTypeSolver(ctx)
-	solver.Do(obj)
+	solver.Do(obj, nil)
 	term := solver.Result
 	ir.FillAllSize(term)
 	return term
@@ -47,12 +47,14 @@ func NewTypeSolver(context *Context) *typeSolver {
 	return &typeSolver{Context: context}
 }
 
-func (r *typeSolver) Do(obj types.Object) {
+func (r *typeSolver) Do(obj types.Object, ityp types.Type) {
 	if r.visited == nil {
 		r.visited = make(map[uri.Uri]struct{})
 	}
 
-	var ityp types.Type = obj.Type()
+	if ityp == nil {
+		ityp = obj.Type()
+	}
 SWITCH:
 	switch typ := ityp.(type) {
 	case *types.Basic:
@@ -73,6 +75,23 @@ SWITCH:
 		defer r.pop()
 		ityp = typ.Elem()
 		goto SWITCH
+	case *types.Map:
+		irMap := ir.NewMap()
+		r.push(tlkOther, typ, irMap)
+		defer r.pop()
+		r.Do(obj, typ.Key())
+		r.Do(obj, typ.Elem())
+
+		irKey := irMap.Key
+	SWITCH_KEY:
+		switch key := irKey.(type) {
+		case *ir.Basic:
+		case *ir.Coerce:
+			irKey = key.Elem
+			goto SWITCH_KEY
+		default:
+			r.throwAt(obj, "map type with key %s is not exportable", typ.Key().String())
+		}
 	case *types.Array:
 		r.push(tlkElem, typ, ir.NewArray(int(typ.Len())))
 		defer r.pop()
@@ -124,7 +143,7 @@ SWITCH:
 
 			r.push(tlkField, field.Type(), irField).
 				fieldName = field.Name()
-			r.Do(field)
+			r.Do(field, nil)
 			r.pop()
 		}
 		return

@@ -58,6 +58,34 @@ func (s *Slice) Traverse(visitPre, visitPost visitor) {
 	visitPost.Call(s)
 }
 
+type Map struct {
+	termHeader
+	termIdent
+	Key   Term
+	Value Term
+}
+
+func NewMap() *Map {
+	t := &Map{}
+	t.initHeader("Map")
+	return t
+}
+
+func (m *Map) AddChild(t Term) {
+	if m.Key == nil {
+		m.Key = t
+	} else {
+		m.Value = t
+	}
+}
+
+func (m *Map) Traverse(visitPre, visitPost visitor) {
+	visitPre.Call(m)
+	m.Key.Traverse(visitPre, visitPost)
+	m.Value.Traverse(visitPre, visitPost)
+	visitPost.Call(m)
+}
+
 type Array struct {
 	termHeader
 	termIdent
