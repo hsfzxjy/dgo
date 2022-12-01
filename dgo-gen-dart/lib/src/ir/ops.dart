@@ -55,14 +55,14 @@ class OpSlice extends Namable {
         super(m);
 
   @override
-  String dartType(Importer context) => 'List<${elem.dartType(context)}>';
+  String dartType(Importer context) => '\$core.List<${elem.dartType(context)}>';
 
   @override
   void writeSnippet$dgoLoad(GeneratorContext ctx) {
     ctx.buffer
       ..writeln('{')
       ..writeln('final size = ${ctx[vArgs]}.current;${ctx[vArgs]}.moveNext();')
-      ..writeln('${ctx[vHolder]} = List.generate(size, (index) {')
+      ..writeln('${ctx[vHolder]} = \$core.List.generate(size, (index) {')
       ..writeln('${elem.dartType(ctx.importer)} instance;')
       ..pipe(elem.writeSnippet$dgoLoad(ctx.withSymbol(vHolder, 'instance')))
       ..writeln('return instance;')
@@ -95,12 +95,12 @@ class OpArray extends Namable {
         super(m);
 
   @override
-  String dartType(Importer context) => 'List<${elem.dartType(context)}>';
+  String dartType(Importer context) => '\$core.List<${elem.dartType(context)}>';
 
   @override
   void writeSnippet$dgoLoad(GeneratorContext ctx) {
     ctx.buffer
-      ..writeln('${ctx[vHolder]} = List.generate($len, (index) {')
+      ..writeln('${ctx[vHolder]} = \$core.List.generate($len, (index) {')
       ..writeln('${elem.dartType(ctx.importer)} instance;')
       ..pipe(elem.writeSnippet$dgoLoad(ctx.withSymbol(vHolder, 'instance')))
       ..writeln('return instance;')
@@ -123,7 +123,8 @@ class OpBasic extends Namable {
   final String typeName;
 
   @override
-  String dartType(Importer context) {
+  String dartType(Importer context) => '\$core.$_dartType';
+  String get _dartType {
     switch (typeName) {
       case 'bool':
         return 'bool';

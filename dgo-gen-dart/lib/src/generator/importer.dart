@@ -15,8 +15,8 @@ class Importer {
     });
   }
 
-  void import3Party(String pkgName) {
-    imports[pkgName] = '';
+  void import3Party(String pkgName, {String alias = ''}) {
+    imports[pkgName] = alias;
   }
 
   String qualifyUri(EntryUri entry) {

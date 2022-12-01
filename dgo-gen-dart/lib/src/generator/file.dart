@@ -12,6 +12,7 @@ class File extends StringBuffer {
     importer.import3Party('package:meta/meta.dart');
     importer.import3Party('package:dgo/dgo.dart');
     importer.import3Party('dart:async');
+    importer.import3Party('dart:core', alias: '\$core');
   }
 
   String get path => p.join(config.generatedInPath, uri.toString());

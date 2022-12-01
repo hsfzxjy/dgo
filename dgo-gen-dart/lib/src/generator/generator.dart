@@ -43,7 +43,7 @@ class Generator {
           ..writeln(
               enumMembers.map((m) => "${m['Name']}(${m['Value']})").join(', '))
           ..writeln(';')
-          ..writeln('factory $entryName.of(int value) {')
+          ..writeln('factory $entryName.of(\$core.int value) {')
           ..writeln('switch (value) {')
           ..for_(enumMembers, (m) {
             file
@@ -83,7 +83,7 @@ class Generator {
     file
       ..writeln()
       ..writeln(
-          'static ${ir.outerDartType(file.importer)} \$dgoLoad(Iterator<dynamic> ${ctx[vArgs]}){')
+          'static ${ir.outerDartType(file.importer)} \$dgoLoad(\$core.Iterator<\$core.dynamic> ${ctx[vArgs]}){')
       ..writeln('${ir.dartType(file.importer)} ${ctx[vHolder]};')
       ..pipe(ir.writeSnippet$dgoLoad(ctx))
       ..if_(
@@ -101,7 +101,7 @@ class Generator {
     file
       ..writeln()
       ..writeln(
-          'int \$dgoStore(List<dynamic> ${ctx[vArgs]}, int ${ctx[vIndex]}) {')
+          '\$core.int \$dgoStore(\$core.List<\$core.dynamic> ${ctx[vArgs]}, \$core.int ${ctx[vIndex]}) {')
       ..writeln('final ${ctx[vHolder]} = this;')
       ..pipe(ir.writeSnippet$dgoStore(ctx))
       ..writeln('return ${ctx[vIndex]};')

@@ -60,7 +60,7 @@ class Method {
       ..writeln('$funcName($paramSig) async {')
       ..writeln('\$port ??= dgo.defaultPort;')
       ..writeln(
-          'final ${ctx[vArgs]} = List<dynamic>.filled($paramSize, null, growable: false);')
+          'final ${ctx[vArgs]} = \$core.List<\$core.dynamic>.filled($paramSize, null, growable: false);')
       ..writeln('var ${ctx[vIndex]} = 0;')
       ..writeln('${ctx[vIndex]} = \$dgoStore(${ctx[vArgs]}, ${ctx[vIndex]});')
       ..for_(
