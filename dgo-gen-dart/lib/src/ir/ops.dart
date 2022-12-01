@@ -85,6 +85,53 @@ class OpSlice extends Namable {
 }
 
 @immutable
+class OpMap extends Namable {
+  final IR key;
+  final IR value;
+
+  OpMap.fromMap(JsonMap m)
+      : key = m.getIR('Key'),
+        value = m.getIR('Value'),
+        super(m);
+
+  @override
+  String dartType(Importer context) =>
+      '\$core.Map<${key.dartType(context)}, ${value.dartType(context)}>';
+
+  @override
+  void writeSnippet$dgoLoad(GeneratorContext ctx) {
+    ctx.buffer
+      ..writeln('{')
+      ..writeln('final size = ${ctx[vArgs]}.current;${ctx[vArgs]}.moveNext();')
+      ..writeln(
+          '${ctx[vHolder]} = \$core.Map.fromEntries(\$core.Iterable.generate(size, (_) {')
+      ..writeln('${key.dartType(ctx.importer)} key;')
+      ..pipe(key.writeSnippet$dgoLoad(ctx.withSymbol(vHolder, 'key')))
+      ..writeln('${value.dartType(ctx.importer)} value;')
+      ..pipe(value.writeSnippet$dgoLoad(ctx.withSymbol(vHolder, 'value')))
+      ..writeln('return \$core.MapEntry(key, value);')
+      ..writeln('}));')
+      ..writeln('}');
+  }
+
+  @override
+  void writeSnippet$dgoStore(GeneratorContext ctx) {
+    final elementName = ctx.pickUnique('\$element');
+    ctx.buffer
+      ..writeln(
+          '${ctx[vArgs]}[${ctx[vIndex]}] = ${ctx[vHolder]}$_snippetQualifier.length;')
+      ..writeln('${ctx[vIndex]}++;')
+      ..writeln(
+          'for (final entry in ${ctx[vHolder]}$_snippetQualifier.entries){')
+      ..writeln('{final $elementName = entry.key;')
+      ..pipe(key.writeSnippet$dgoStore(ctx.withSymbol(vHolder, elementName)))
+      ..writeln('}{final $elementName = entry.value;')
+      ..pipe(value.writeSnippet$dgoStore(ctx.withSymbol(vHolder, elementName)))
+      ..writeln('}}');
+  }
+}
+
+@immutable
 class OpArray extends Namable {
   final int len;
   final IR elem;

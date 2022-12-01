@@ -9,6 +9,7 @@ final _irBuilders = Map<String, IR Function(JsonMap)>.fromEntries([
   OpStruct,
   OpOptional,
   OpSlice,
+  OpMap,
 ].map((type) {
   final mirror = reflectClass(type);
   final className = type.toString();
