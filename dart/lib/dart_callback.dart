@@ -47,7 +47,7 @@ class _InvokingDartCallback extends _Handlable {
       : _id = value & _callbackIdMask,
         _flag = CallbackFlag._(value);
 
-@override
+  @override
   String toString() => '$runtimeType[id=$_id, port=$_port]';
 
   @override
