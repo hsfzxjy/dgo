@@ -52,7 +52,7 @@ test_basic:
 	$(call integration_test,test_basic)
 
 tidy_go = (cd $(WORK_DIR)/$1; go mod tidy; go fmt)
-tidy_dart = (cd $(WORK_DIR)/$1; dart run import_sorter:main; dart fix --apply)
+tidy_dart = (cd $(WORK_DIR)/$1; dart run import_sorter:main; dart fix --apply; dart format --fix .)
 
 .PHONY: test_gen
 test_gen:
