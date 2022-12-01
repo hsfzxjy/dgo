@@ -52,7 +52,7 @@ class Method {
   void writeSnippet(GeneratorContext ctx) {
     var paramSig = params
         .map((p) => '${p.term.outerDartType(ctx.importer)} ${p.name}')
-        .followedBy(['{Duration? \$timeout, DgoPort? \$port}']).join(',');
+        .followedBy(['{\$core.Duration? \$timeout,DgoPort? \$port}']).join(',');
     var paramSize = params.map((p) => p.term.goSize).sum();
     paramSize += self.goSize;
     ctx.buffer
