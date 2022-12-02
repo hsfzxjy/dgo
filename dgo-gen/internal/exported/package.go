@@ -2,6 +2,7 @@ package exported
 
 import (
 	"go/constant"
+	"go/token"
 	"go/types"
 	"strconv"
 
@@ -45,9 +46,10 @@ func NewPackage(ppkg *packages.Package, ctx *collector.Context, isDep bool) *Pac
 			t.parseDirectives(directives)
 			epkg.Types = append(epkg.Types, t)
 		},
-		func(funcName, recvName string, recvPointer bool, directives []string) {
+		func(funcName, recvName string, recvPointer bool, pos token.Pos, directives []string) {
 			epkg.Funcs = append(epkg.Funcs, &Function{
 				Context:         ctx,
+				pos:             pos,
 				PPackage:        ppkg,
 				Name:            funcName,
 				Params:          []FunctionParam{},

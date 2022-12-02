@@ -31,7 +31,7 @@ func parseDgoExported(doc *ast.CommentGroup) (directives []string, isExported bo
 func (ctx *Context) Collect(
 	ppkg *packages.Package,
 	onType func(typeName string, directives []string),
-	onFunction func(funcName, recvName string, recvPointer bool, directives []string),
+	onFunction func(funcName, recvName string, recvPointer bool, pos token.Pos, directives []string),
 	onConst func(constName string, directives []string),
 ) {
 	for _, file := range ppkg.Syntax {
@@ -93,7 +93,7 @@ func (ctx *Context) Collect(
 					recvName = recv.Name
 				}
 
-				onFunction(name, recvName, recvPtr, directives)
+				onFunction(name, recvName, recvPtr, decl.Pos(), directives)
 			}
 		}
 	}

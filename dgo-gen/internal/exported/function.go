@@ -1,9 +1,11 @@
 package exported
 
 import (
+	"go/token"
 	"go/types"
 
 	"github.com/hsfzxjy/dgo/dgo-gen/internal/collector"
+	"github.com/hsfzxjy/dgo/dgo-gen/internal/exception"
 	"github.com/hsfzxjy/dgo/dgo-gen/internal/ir"
 	"golang.org/x/tools/go/packages"
 )
@@ -15,6 +17,7 @@ type FunctionParam struct {
 
 type Function struct {
 	*collector.Context `json:"-"`
+	pos                token.Pos         `json:"-"`
 	PPackage           *packages.Package `json:"-"`
 	FuncId             uint32
 	Name               string
@@ -46,11 +49,18 @@ func isErrorInterface(t types.Type) bool {
 	return false
 }
 
+func (efunc *Function) Pos() token.Pos { return efunc.pos }
+
 func (efunc *Function) Resolve() {
 	if efunc.Type != nil {
 		return
 	}
-	efunc.Type = efunc.Context.PackageOf(efunc.PPackage.PkgPath).Type(efunc.ReceiverName).(*Type)
+	if typ, ok := efunc.Context.PackageOf(efunc.PPackage.PkgPath).
+		Type(efunc.ReceiverName).(*Type); ok {
+		efunc.Type = typ
+	} else {
+		exception.ThrowAt(efunc.PPackage, efunc, "receiver type is not exported")
+	}
 
 	var methodSet *types.MethodSet
 	if efunc.ReceiverPointer {
