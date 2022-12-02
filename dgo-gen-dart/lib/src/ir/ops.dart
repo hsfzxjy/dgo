@@ -38,7 +38,7 @@ abstract class Namable extends IR {
       isNamed ? ctx.importer.qualifyUri(myUri!) : dartType;
 }
 
-extension on Namable {
+extension NamableExt on Namable {
   bool get isNamed => myUri != null;
 
   String get _snippetQualifier {
@@ -61,7 +61,7 @@ class OpSlice extends Namable {
   void writeSnippet$dgoLoad() {
     final vSize2 = vSize.dup;
     ctx
-      ..sln('final $vSize2 = $vArgs.current;$vArgs.moveNext();')
+      ..sln('final $vSize2 = $vArgs.current; $vArgs.moveNext();')
       ..sln('$vHolder = \$core.List.generate($vSize2, (_) {')
       ..sln('${elem.dartType} $vHolder;')
       ..scope({}, elem.writeSnippet$dgoLoad)
