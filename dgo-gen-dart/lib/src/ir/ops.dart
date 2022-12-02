@@ -290,33 +290,29 @@ class OpStruct extends Namable {
   @override
   void writeSnippet$dgoLoad() {
     final structName = myUri!.name;
-    ctx.sln('{');
-    final vFieldHolders = <String>[];
-    for (final field in fields.values) {
-      final vFieldHolder = '\$field${field.name}';
-      vFieldHolders.add(vFieldHolder);
-      ctx
-        ..sln('${field.dartType} $vFieldHolder;')
-        ..scope({vHolder: vFieldHolder}, field.writeSnippet$dgoLoad);
-    }
-    final constructorArgs = vFieldHolders.join(',');
+    final vFields = <GeneratorSymbol>[];
     ctx
-      ..sln('$vHolder = $structName($constructorArgs);')
-      ..sln('}');
+      ..for_(fields.values, (field) {
+        final vField = vHolder.dup;
+        vFields.add(vField);
+        ctx
+          ..sln(' // Loading Field ${field.name}')
+          ..sln('${field.dartType} $vField;')
+          ..alias({vHolder: vField}, field.writeSnippet$dgoLoad);
+      })
+      ..sln('$vHolder = $structName(${vFields.joinComma});');
   }
 
   @override
   void writeSnippet$dgoStore() {
-    ctx.sln('{');
-    for (final field in fields.values) {
-      if (!field.sendBackToGo) continue;
+    ctx.for_(fields.values, (field) {
+      if (!field.sendBackToGo) return;
+      final vField = vHolder.dup;
       ctx
-        ..sln('{')
-        ..sln('final \$field = $vHolder.${field.name};')
-        ..scope({vHolder: '\$field'}, field.writeSnippet$dgoStore)
-        ..sln('}');
-    }
-    ctx.sln('}');
+        ..sln(' // Storing Field ${field.name}')
+        ..sln('final $vField = $vHolder.${field.name};')
+        ..alias({vHolder: vField}, field.writeSnippet$dgoStore);
+    });
   }
 }
 

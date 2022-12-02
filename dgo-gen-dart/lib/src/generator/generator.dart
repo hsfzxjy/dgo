@@ -89,7 +89,7 @@ class Generator {
       ..sln(
           'static ${ir.outerDartType} \$dgoLoad(\$core.Iterator<\$core.dynamic> $vArgs){')
       ..sln('${ir.dartType} $vHolder;')
-      ..then(ir.writeSnippet$dgoLoad)
+      ..scope({}, ir.writeSnippet$dgoLoad)
       ..if_(
         ir is OpStruct,
         () => ctx.sln('return $vHolder;'),
@@ -106,7 +106,7 @@ class Generator {
       ..sln(
           '\$core.int \$dgoStore(\$core.List<\$core.dynamic> $vArgs, \$core.int $vIndex) {')
       ..sln('final $vHolder = this;')
-      ..then(ir.writeSnippet$dgoStore)
+      ..scope({}, ir.writeSnippet$dgoStore)
       ..sln('return $vIndex;')
       ..sln('}')
       ..sln('}');

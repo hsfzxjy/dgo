@@ -16,3 +16,7 @@ extension MapMapExt<K, V> on Map<K, V> {
   }) =>
       entries.map(f).asMap(ordered: ordered);
 }
+
+extension JoinCommaExt<T> on Iterable<T> {
+  String get joinComma => join(',');
+}
