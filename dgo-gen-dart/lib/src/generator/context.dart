@@ -6,7 +6,7 @@ class GeneratorSymbol {
   const GeneratorSymbol(this._value);
 
   @override
-  String toString() => _value;
+  String toString() => ctx[this];
 
   @override
   int get hashCode => _value.hashCode;
@@ -21,6 +21,8 @@ class GeneratorContext {
   final Importer importer;
   final _symbols = <GeneratorSymbol, String>{};
   final _usedNames = <String>{};
+
+  static final _stack = <GeneratorContext>[];
 
   GeneratorContext(this.buffer, this.importer);
 
@@ -38,19 +40,19 @@ class GeneratorContext {
       counter++;
     }
   }
+}
 
-  GeneratorContext withSymbol(GeneratorSymbol sym, String value) =>
-      GeneratorContext(buffer, importer)
-        .._symbols.addAll(_symbols)
-        .._symbols[sym] = value
-        .._usedNames.addAll(_usedNames)
-        .._usedNames.add(value);
+GeneratorContext get ctx => GeneratorContext._stack.last;
+GeneratorContext get currentContext => ctx;
 
-  GeneratorContext withSymbols(Map<GeneratorSymbol, String> syms) =>
-      GeneratorContext(buffer, importer)
-        .._symbols.addAll(_symbols)
-        .._symbols.addAll(syms)
-        .._usedNames.addAll(_usedNames.followedBy(syms.values));
+void setFile(File file, Map<GeneratorSymbol, String> symbolMap) {
+  assert(GeneratorContext._stack.length <= 1);
+  final newContext = GeneratorContext(file, file.importer)
+    .._symbols.addAll(symbolMap)
+    .._usedNames.addAll(symbolMap.values);
+  GeneratorContext._stack
+    ..clear()
+    ..add(newContext);
 }
 
 const vArgs = GeneratorSymbol('#!vArgs');

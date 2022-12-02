@@ -10,22 +10,21 @@ class Param {
 }
 
 extension _NullableIRExt on IR? {
-  String dartType(Importer context) =>
-      this == null ? 'void' : this!.dartType(context);
+  String get dartType => this == null ? 'void' : this!.dartType;
 }
 
 extension _IRExt on IR {
   void writeSnippetLoad(GeneratorContext ctx) {
     if (this is Namable && (this as Namable).isNamed) {
       final myUri = (this as Namable).myUri!;
-      ctx.buffer
-        ..writeln('{')
-        ..writeln('${ctx[vHolder]} = ')
-        ..writeln(ctx.importer.qualifyUri(myUri))
-        ..writeln('.\$dgoLoad(${ctx[vArgs]});')
-        ..writeln('}');
+      ctx
+        ..sln('{')
+        ..sln('$vHolder = ')
+        ..sln(ctx.importer.qualifyUri(myUri))
+        ..sln('.\$dgoLoad($vArgs);')
+        ..sln('}');
     } else {
-      writeSnippet$dgoLoad(ctx);
+      writeSnippet$dgoLoad();
     }
   }
 }
@@ -51,40 +50,42 @@ class Method {
 
   void writeSnippet(GeneratorContext ctx) {
     var paramSig = params
-        .map((p) => '${p.term.outerDartType(ctx.importer)} ${p.name}')
+        .map((p) => '${p.term.outerDartType} ${p.name}')
         .followedBy(['{\$core.Duration? \$timeout,DgoPort? \$port}']).join(',');
     var paramSize = params.map((p) => p.term.goSize).sum();
     paramSize += self.goSize;
-    ctx.buffer
-      ..writeln('Future<${returnType.dartType(ctx.importer)}>')
-      ..writeln('$funcName($paramSig) async {')
-      ..writeln('\$port ??= dgo.defaultPort;')
-      ..writeln(
-          'final ${ctx[vArgs]} = \$core.List<\$core.dynamic>.filled($paramSize, null, growable: false);')
-      ..writeln('var ${ctx[vIndex]} = 0;')
-      ..writeln('${ctx[vIndex]} = \$dgoStore(${ctx[vArgs]}, ${ctx[vIndex]});')
+    ctx
+      ..sln('Future<${returnType.dartType}>')
+      ..sln('$funcName($paramSig) async {')
+      ..sln('\$port ??= dgo.defaultPort;')
+      ..sln('final $vArgs = \$core.List<\$core.dynamic>'
+          '.filled($paramSize, null, growable: false);')
+      ..sln('var $vIndex = 0;')
+      ..sln('$vIndex = \$dgoStore($vArgs, $vIndex);')
       ..for_(
           params,
-          (param) => ctx.buffer
-            ..writeln('{')
-            ..writeln('final ${ctx[vHolder]} = ${param.name};')
-            ..pipe(param.term.writeSnippet$dgoStore(ctx))
-            ..writeln('}'))
-      ..writeln('final \$future = GoMethod($funcId, \$port)'
-          '.${returnType == null ? "call" : "callWithResult"}'
-          '(${ctx[vArgs]}, '
-          'timeout: \$timeout, hasError: $returnError);')
+          (param) => ctx
+            ..sln('{')
+            ..sln('final $vHolder = ${param.name};')
+            ..then(param.term.writeSnippet$dgoStore)
+            ..sln('}'))
+      ..sln(
+        'final \$future = GoMethod($funcId, \$port)'
+        '.${returnType == null ? "call" : "callWithResult"}'
+        '($vArgs, timeout: \$timeout, hasError: $returnError);',
+      )
       ..if_(
-          returnType == null,
-          () => ctx.buffer.writeln('return \$future;'),
-          () => ctx.buffer
-            ..writeln('{')
-            ..writeln('final ${ctx[vArgs]} = (await \$future).iterator;')
-            ..writeln('${ctx[vArgs]}.moveNext();')
-            ..writeln('${returnType!.dartType(ctx.importer)} ${ctx[vHolder]};')
-            ..pipe(returnType!.writeSnippetLoad(ctx))
-            ..writeln('return ${ctx[vHolder]};')
-            ..writeln('}'))
-      ..writeln('}');
+        returnType == null,
+        () => ctx.sln('return \$future;'),
+        else_: () => ctx
+          ..sln('{')
+          ..sln('final $vArgs = (await \$future).iterator;')
+          ..sln('$vArgs.moveNext();')
+          ..sln('${returnType!.dartType} $vHolder;')
+          ..pipe(returnType!.writeSnippetLoad(ctx))
+          ..sln('return $vHolder;')
+          ..sln('}'),
+      )
+      ..sln('}');
   }
 }

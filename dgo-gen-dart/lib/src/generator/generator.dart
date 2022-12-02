@@ -13,6 +13,7 @@ import '../uri.dart';
 
 part 'importer.dart';
 part 'context.dart';
+part 'context_ext.dart';
 part 'file.dart';
 part 'fileset.dart';
 part 'config.dart';
@@ -36,84 +37,85 @@ class Generator {
     final enumMembers = entry['EnumMembers'] as List;
     final constructorName = isEnum ? '.of' : '';
 
-    file
-      ..if_(isEnum, () {
-        file
-          ..writeln('enum $entryName {')
-          ..writeln(
-              enumMembers.map((m) => "${m['Name']}(${m['Value']})").join(', '))
-          ..writeln(';')
-          ..writeln('factory $entryName.of(\$core.int value) {')
-          ..writeln('switch (value) {')
-          ..for_(enumMembers, (m) {
-            file
-              ..writeln("case ${m['Value']}:")
-              ..writeln("return ${m['Name']};");
-          })
-          ..writeln('default:')
-          ..writeln("throw 'dgo:dart: cannot convert \$value to $entryName';")
-          ..writeln('}')
-          ..writeln('}')
-          ..writeln();
-      }, () {
-        file
-          ..writeln('@immutable')
-          ..writeln('${isEnum ? "enum" : "class"} $entryName {');
-      })
-      ..writeln('static const typeId = $typeId;');
+    setFile(file, {
+      vArgs: '\$args',
+      vIndex: '\$startIndex',
+      vHolder: '\$instance',
+    });
 
-    file.if_(
+    ctx
+      ..if_(
+        isEnum,
+        () => ctx
+          ..sln('enum $entryName {')
+          ..sln(
+              enumMembers.map((m) => "${m['Name']}(${m['Value']})").join(', '))
+          ..sln(';')
+          ..sln('factory $entryName.of(\$core.int value) {')
+          ..sln('switch (value) {')
+          ..for_(enumMembers, (m) {
+            ctx
+              ..sln("case ${m['Value']}:")
+              ..sln("return ${m['Name']};");
+          })
+          ..sln('default:')
+          ..sln("throw 'dgo:dart: cannot convert \$value to $entryName';")
+          ..sln('}')
+          ..sln('}')
+          ..sln(),
+        else_: () => ctx
+          ..sln('@immutable')
+          ..sln('${isEnum ? "enum" : "class"} $entryName {'),
+      )
+      ..sln('static const typeId = $typeId;');
+
+    ctx.if_(
       ir is OpStruct,
-      () => file
+      () => ctx
         ..for_(
-            (ir as OpStruct).fields.values,
-            (field) => file.writeln(
-                '''final ${field.term.dartType(file.importer)} ${field.name};'''))
-        ..write('const $entryName(')
-        ..writeln(
-            ir.fields.values.map((field) => 'this.${field.name}').join(','))
-        ..writeln(');'),
-      () => file
-        ..writeln('final ${ir.dartType(file.importer)} \$inner;')
-        ..writeln('const $entryName(this.\$inner);'),
+          (ir as OpStruct).fields.values,
+          (field) => ctx.sln('final ${field.term.dartType} ${field.name};'),
+        )
+        ..str('const $entryName(')
+        ..sln(ir.fields.values.map((field) => 'this.${field.name}').join(','))
+        ..sln(');'),
+      else_: () => ctx
+        ..sln('final ${ir.dartType} \$inner;')
+        ..sln('const $entryName(this.\$inner);'),
     );
 
-    var ctx = file.asGeneratorContext().withSymbols(
-        {vArgs: '\$args', vIndex: '\$startIndex', vHolder: '\$instance'});
-    file
-      ..writeln()
-      ..writeln(
-          'static ${ir.outerDartType(file.importer)} \$dgoLoad(\$core.Iterator<\$core.dynamic> ${ctx[vArgs]}){')
-      ..writeln('${ir.dartType(file.importer)} ${ctx[vHolder]};')
-      ..pipe(ir.writeSnippet$dgoLoad(ctx))
+    ctx
+      ..sln()
+      ..sln(
+          'static ${ir.outerDartType} \$dgoLoad(\$core.Iterator<\$core.dynamic> $vArgs){')
+      ..sln('${ir.dartType} $vHolder;')
+      ..then(ir.writeSnippet$dgoLoad)
       ..if_(
         ir is OpStruct,
-        () => file.writeln('return ${ctx[vHolder]};'),
-        () =>
-            file.writeln('return $entryName$constructorName(${ctx[vHolder]});'),
+        () => ctx.sln('return $vHolder;'),
+        else_: () => ctx.sln('return $entryName$constructorName($vHolder);'),
       )
-      ..writeln('}');
+      ..sln('}');
 
     for (final methodSpec in entry['Methods'] ?? []) {
       Method.fromMap(ir, methodSpec).writeSnippet(ctx);
     }
 
-    file
-      ..writeln()
-      ..writeln(
-          '\$core.int \$dgoStore(\$core.List<\$core.dynamic> ${ctx[vArgs]}, \$core.int ${ctx[vIndex]}) {')
-      ..writeln('final ${ctx[vHolder]} = this;')
-      ..pipe(ir.writeSnippet$dgoStore(ctx))
-      ..writeln('return ${ctx[vIndex]};')
-      ..writeln('}');
-
-    file.writeln('}');
+    ctx
+      ..sln()
+      ..sln(
+          '\$core.int \$dgoStore(\$core.List<\$core.dynamic> $vArgs, \$core.int $vIndex) {')
+      ..sln('final $vHolder = this;')
+      ..then(ir.writeSnippet$dgoStore)
+      ..sln('return $vIndex;')
+      ..sln('}')
+      ..sln('}');
 
     final rename = entry['Rename'] as String;
     if (rename.isNotEmpty) {
-      file
-        ..writeln()
-        ..writeln('typedef $rename = $entryName;');
+      ctx
+        ..sln()
+        ..sln('typedef $rename = $entryName;');
     }
   }
 

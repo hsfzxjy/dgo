@@ -20,11 +20,11 @@ abstract class IR {
       : dartSize = m['DartSize'],
         goSize = m['GoSize'];
   factory IR.fromJSON(Map m) => _buildIR(m as JsonMap);
-  String dartType(Importer context);
-  String outerDartType(Importer context) => dartType(context);
+  String get dartType;
+  String get outerDartType => dartType;
 
-  void writeSnippet$dgoLoad(GeneratorContext ctx);
-  void writeSnippet$dgoStore(GeneratorContext ctx);
+  void writeSnippet$dgoLoad();
+  void writeSnippet$dgoStore();
 }
 
 abstract class Namable extends IR {
@@ -34,8 +34,8 @@ abstract class Namable extends IR {
         super(m);
 
   @override
-  String outerDartType(Importer context) =>
-      isNamed ? context.qualifyUri(myUri!) : dartType(context);
+  String get outerDartType =>
+      isNamed ? ctx.importer.qualifyUri(myUri!) : dartType;
 }
 
 extension on Namable {
@@ -55,32 +55,31 @@ class OpSlice extends Namable {
         super(m);
 
   @override
-  String dartType(Importer context) => '\$core.List<${elem.dartType(context)}>';
+  String get dartType => '\$core.List<${elem.dartType}>';
 
   @override
-  void writeSnippet$dgoLoad(GeneratorContext ctx) {
-    ctx.buffer
-      ..writeln('{')
-      ..writeln('final size = ${ctx[vArgs]}.current;${ctx[vArgs]}.moveNext();')
-      ..writeln('${ctx[vHolder]} = \$core.List.generate(size, (index) {')
-      ..writeln('${elem.dartType(ctx.importer)} instance;')
-      ..pipe(elem.writeSnippet$dgoLoad(ctx.withSymbol(vHolder, 'instance')))
-      ..writeln('return instance;')
-      ..writeln('}, growable: false);')
-      ..writeln('}');
+  void writeSnippet$dgoLoad() {
+    ctx
+      ..sln('{')
+      ..sln('final size = $vArgs.current;$vArgs.moveNext();')
+      ..sln('$vHolder = \$core.List.generate(size, (index) {')
+      ..sln('${elem.dartType} instance;')
+      ..scope({vHolder: 'instance'}, elem.writeSnippet$dgoLoad)
+      ..sln('return instance;')
+      ..sln('}, growable: false);')
+      ..sln('}');
   }
 
   @override
-  void writeSnippet$dgoStore(GeneratorContext ctx) {
+  void writeSnippet$dgoStore() {
     final elementName = ctx.pickUnique('\$element');
-    ctx.buffer
-      ..writeln(
-          '${ctx[vArgs]}[${ctx[vIndex]}] = ${ctx[vHolder]}$_snippetQualifier.length;')
-      ..writeln('${ctx[vIndex]}++;')
-      ..writeln('for (var i=0;i<${ctx[vHolder]}$_snippetQualifier.length;i++){')
-      ..writeln('final $elementName = ${ctx[vHolder]}$_snippetQualifier[i];')
-      ..pipe(elem.writeSnippet$dgoStore(ctx.withSymbol(vHolder, elementName)))
-      ..writeln('}');
+    ctx
+      ..sln('$vArgs[$vIndex] = $vHolder$_snippetQualifier.length;')
+      ..sln('$vIndex++;')
+      ..sln('for (var i=0;i<$vHolder$_snippetQualifier.length;i++){')
+      ..sln('final $elementName = $vHolder$_snippetQualifier[i];')
+      ..scope({vHolder: elementName}, elem.writeSnippet$dgoStore)
+      ..sln('}');
   }
 }
 
@@ -95,39 +94,36 @@ class OpMap extends Namable {
         super(m);
 
   @override
-  String dartType(Importer context) =>
-      '\$core.Map<${key.dartType(context)}, ${value.dartType(context)}>';
+  String get dartType => '\$core.Map<${key.dartType}, ${value.dartType}>';
 
   @override
-  void writeSnippet$dgoLoad(GeneratorContext ctx) {
-    ctx.buffer
-      ..writeln('{')
-      ..writeln('final size = ${ctx[vArgs]}.current;${ctx[vArgs]}.moveNext();')
-      ..writeln(
-          '${ctx[vHolder]} = \$core.Map.fromEntries(\$core.Iterable.generate(size, (_) {')
-      ..writeln('${key.dartType(ctx.importer)} key;')
-      ..pipe(key.writeSnippet$dgoLoad(ctx.withSymbol(vHolder, 'key')))
-      ..writeln('${value.dartType(ctx.importer)} value;')
-      ..pipe(value.writeSnippet$dgoLoad(ctx.withSymbol(vHolder, 'value')))
-      ..writeln('return \$core.MapEntry(key, value);')
-      ..writeln('}));')
-      ..writeln('}');
+  void writeSnippet$dgoLoad() {
+    ctx
+      ..sln('{')
+      ..sln('final size = $vArgs.current;$vArgs.moveNext();')
+      ..sln(
+          '$vHolder = \$core.Map.fromEntries(\$core.Iterable.generate(size, (_) {')
+      ..sln('${key.dartType} key;')
+      ..scope({vHolder: 'key'}, key.writeSnippet$dgoLoad)
+      ..sln('${value.dartType} value;')
+      ..scope({vHolder: 'value'}, value.writeSnippet$dgoLoad)
+      ..sln('return \$core.MapEntry(key, value);')
+      ..sln('}));')
+      ..sln('}');
   }
 
   @override
-  void writeSnippet$dgoStore(GeneratorContext ctx) {
+  void writeSnippet$dgoStore() {
     final elementName = ctx.pickUnique('\$element');
-    ctx.buffer
-      ..writeln(
-          '${ctx[vArgs]}[${ctx[vIndex]}] = ${ctx[vHolder]}$_snippetQualifier.length;')
-      ..writeln('${ctx[vIndex]}++;')
-      ..writeln(
-          'for (final entry in ${ctx[vHolder]}$_snippetQualifier.entries){')
-      ..writeln('{final $elementName = entry.key;')
-      ..pipe(key.writeSnippet$dgoStore(ctx.withSymbol(vHolder, elementName)))
-      ..writeln('}{final $elementName = entry.value;')
-      ..pipe(value.writeSnippet$dgoStore(ctx.withSymbol(vHolder, elementName)))
-      ..writeln('}}');
+    ctx
+      ..sln('$vArgs[$vIndex] = $vHolder$_snippetQualifier.length;')
+      ..sln('$vIndex++;')
+      ..sln('for (final entry in $vHolder$_snippetQualifier.entries){')
+      ..sln('{final $elementName = entry.key;')
+      ..scope({vHolder: elementName}, key.writeSnippet$dgoStore)
+      ..sln('}{final $elementName = entry.value;')
+      ..scope({vHolder: elementName}, value.writeSnippet$dgoStore)
+      ..sln('}}');
   }
 }
 
@@ -142,26 +138,26 @@ class OpArray extends Namable {
         super(m);
 
   @override
-  String dartType(Importer context) => '\$core.List<${elem.dartType(context)}>';
+  String get dartType => '\$core.List<${elem.dartType}>';
 
   @override
-  void writeSnippet$dgoLoad(GeneratorContext ctx) {
-    ctx.buffer
-      ..writeln('${ctx[vHolder]} = \$core.List.generate($len, (index) {')
-      ..writeln('${elem.dartType(ctx.importer)} instance;')
-      ..pipe(elem.writeSnippet$dgoLoad(ctx.withSymbol(vHolder, 'instance')))
-      ..writeln('return instance;')
-      ..writeln('}, growable: false);');
+  void writeSnippet$dgoLoad() {
+    ctx
+      ..sln('$vHolder = \$core.List.generate($len, (index) {')
+      ..sln('${elem.dartType} instance;')
+      ..scope({vHolder: 'instance'}, elem.writeSnippet$dgoLoad)
+      ..sln('return instance;')
+      ..sln('}, growable: false);');
   }
 
   @override
-  void writeSnippet$dgoStore(GeneratorContext ctx) {
+  void writeSnippet$dgoStore() {
     final elementName = ctx.pickUnique('\$element');
-    ctx.buffer
-      ..writeln('for (var i=0;i<$len;i++){')
-      ..writeln('final $elementName = ${ctx[vHolder]}$_snippetQualifier[i];')
-      ..pipe(elem.writeSnippet$dgoStore(ctx.withSymbol(vHolder, elementName)))
-      ..writeln('}');
+    ctx
+      ..sln('for (var i=0;i<$len;i++){')
+      ..sln('final $elementName = $vHolder$_snippetQualifier[i];')
+      ..scope({vHolder: elementName}, elem.writeSnippet$dgoStore)
+      ..sln('}');
   }
 }
 
@@ -170,7 +166,7 @@ class OpBasic extends Namable {
   final String typeName;
 
   @override
-  String dartType(Importer context) => '\$core.$_dartType';
+  String get dartType => '\$core.$_dartType';
   String get _dartType {
     switch (typeName) {
       case 'bool':
@@ -195,18 +191,17 @@ class OpBasic extends Namable {
         super(m);
 
   @override
-  void writeSnippet$dgoLoad(GeneratorContext ctx) {
-    ctx.buffer
-      ..writeln('${ctx[vHolder]} = ${ctx[vArgs]}.current;')
-      ..writeln('${ctx[vArgs]}.moveNext();');
+  void writeSnippet$dgoLoad() {
+    ctx
+      ..sln('$vHolder = $vArgs.current;')
+      ..sln('$vArgs.moveNext();');
   }
 
   @override
-  void writeSnippet$dgoStore(GeneratorContext ctx) {
-    ctx.buffer
-      ..writeln(
-          '${ctx[vArgs]}[${ctx[vIndex]}] = ${ctx[vHolder]}$_snippetQualifier;')
-      ..writeln('${ctx[vIndex]}++;');
+  void writeSnippet$dgoStore() {
+    ctx
+      ..sln('$vArgs[$vIndex] = $vHolder$_snippetQualifier;')
+      ..sln('$vIndex++;');
   }
 }
 
@@ -219,18 +214,16 @@ class OpCoerce extends IR {
         super(m);
 
   @override
-  String dartType(Importer context) => context.qualifyUri(ident);
+  String get dartType => currentContext.importer.qualifyUri(ident);
 
   @override
-  void writeSnippet$dgoLoad(GeneratorContext ctx) {
-    ctx.buffer.writeln(
-        '${ctx[vHolder]} = ${dartType(ctx.importer)}.\$dgoLoad(${ctx[vArgs]});');
+  void writeSnippet$dgoLoad() {
+    ctx.sln('$vHolder = $dartType.\$dgoLoad($vArgs);');
   }
 
   @override
-  void writeSnippet$dgoStore(GeneratorContext ctx) {
-    ctx.buffer.writeln(
-        '${ctx[vIndex]} = ${ctx[vHolder]}.\$dgoStore(${ctx[vArgs]}, ${ctx[vIndex]});');
+  void writeSnippet$dgoStore() {
+    ctx.sln('$vIndex = $vHolder.\$dgoStore($vArgs, $vIndex);');
   }
 }
 
@@ -243,15 +236,13 @@ class OpPtrTo extends Namable {
         super(m);
 
   @override
-  String dartType(Importer context) => elem.dartType(context);
+  String get dartType => elem.dartType;
 
   @override
-  void writeSnippet$dgoLoad(GeneratorContext ctx) =>
-      elem.writeSnippet$dgoLoad(ctx);
+  void writeSnippet$dgoLoad() => elem.writeSnippet$dgoLoad();
 
   @override
-  void writeSnippet$dgoStore(GeneratorContext ctx) =>
-      elem.writeSnippet$dgoStore(ctx);
+  void writeSnippet$dgoStore() => elem.writeSnippet$dgoStore();
 }
 
 @immutable
@@ -273,15 +264,13 @@ class OpField extends IR {
         super(m);
 
   @override
-  String dartType(Importer context) => term.dartType(context);
+  String get dartType => term.dartType;
 
   @override
-  void writeSnippet$dgoLoad(GeneratorContext ctx) =>
-      term.writeSnippet$dgoLoad(ctx);
+  void writeSnippet$dgoLoad() => term.writeSnippet$dgoLoad();
 
   @override
-  void writeSnippet$dgoStore(GeneratorContext ctx) =>
-      term.writeSnippet$dgoStore(ctx);
+  void writeSnippet$dgoStore() => term.writeSnippet$dgoStore();
 }
 
 @immutable
@@ -295,41 +284,38 @@ class OpStruct extends Namable {
         super(m);
 
   @override
-  String dartType(Importer context) {
-    return context.qualifyUri(myUri!);
-  }
+  String get dartType => currentContext.importer.qualifyUri(myUri!);
 
   @override
-  void writeSnippet$dgoLoad(GeneratorContext ctx) {
+  void writeSnippet$dgoLoad() {
     final structName = myUri!.name;
-    ctx.buffer.writeln('{');
+    ctx.sln('{');
     final vFieldHolders = <String>[];
     for (final field in fields.values) {
       final vFieldHolder = '\$field${field.name}';
       vFieldHolders.add(vFieldHolder);
-      ctx.buffer
-        ..writeln('${field.dartType(ctx.importer)} $vFieldHolder;')
-        ..pipe(
-            field.writeSnippet$dgoLoad(ctx.withSymbol(vHolder, vFieldHolder)));
+      ctx
+        ..sln('${field.dartType} $vFieldHolder;')
+        ..scope({vHolder: vFieldHolder}, field.writeSnippet$dgoLoad);
     }
     final constructorArgs = vFieldHolders.join(',');
-    ctx.buffer
-      ..writeln('${ctx[vHolder]} = $structName($constructorArgs);')
-      ..writeln('}');
+    ctx
+      ..sln('$vHolder = $structName($constructorArgs);')
+      ..sln('}');
   }
 
   @override
-  void writeSnippet$dgoStore(GeneratorContext ctx) {
-    ctx.buffer.writeln('{');
+  void writeSnippet$dgoStore() {
+    ctx.sln('{');
     for (final field in fields.values) {
       if (!field.sendBackToGo) continue;
-      ctx.buffer
-        ..writeln('{')
-        ..writeln('final \$field = ${ctx[vHolder]}.${field.name};')
-        ..pipe(field.writeSnippet$dgoStore(ctx.withSymbol(vHolder, '\$field')))
-        ..writeln('}');
+      ctx
+        ..sln('{')
+        ..sln('final \$field = $vHolder.${field.name};')
+        ..scope({vHolder: '\$field'}, field.writeSnippet$dgoStore)
+        ..sln('}');
     }
-    ctx.buffer.writeln('}');
+    ctx.sln('}');
   }
 }
 
@@ -342,27 +328,27 @@ class OpOptional extends IR {
         super(m);
 
   @override
-  String dartType(Importer context) => '${term.dartType(context)}?';
+  String get dartType => '${term.dartType}?';
 
   @override
-  void writeSnippet$dgoLoad(GeneratorContext ctx) {
-    ctx.buffer
-      ..writeln('if (${ctx[vArgs]}.current==null) {')
-      ..writeln('${ctx[vHolder]} = null;')
-      ..writeln('${ctx[vArgs]}.moveNext();')
-      ..writeln('} else {')
-      ..pipe(term.writeSnippet$dgoLoad(ctx))
-      ..writeln('}');
+  void writeSnippet$dgoLoad() {
+    ctx
+      ..sln('if ($vArgs.current==null) {')
+      ..sln('$vHolder = null;')
+      ..sln('$vArgs.moveNext();')
+      ..sln('} else {')
+      ..then(term.writeSnippet$dgoLoad)
+      ..sln('}');
   }
 
   @override
-  void writeSnippet$dgoStore(GeneratorContext ctx) {
-    ctx.buffer
-      ..writeln('if (${ctx[vHolder]}==null) {')
-      ..writeln('${ctx[vArgs]}[${ctx[vIndex]}] = null;')
-      ..writeln('${ctx[vIndex]}++;')
-      ..writeln('} else {')
-      ..pipe(term.writeSnippet$dgoStore(ctx))
-      ..writeln('}');
+  void writeSnippet$dgoStore() {
+    ctx
+      ..sln('if ($vHolder==null) {')
+      ..sln('$vArgs[$vIndex] = null;')
+      ..sln('$vIndex++;')
+      ..sln('} else {')
+      ..then(term.writeSnippet$dgoStore)
+      ..sln('}');
   }
 }
