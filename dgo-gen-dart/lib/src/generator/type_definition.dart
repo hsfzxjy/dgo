@@ -62,7 +62,8 @@ class TypeDefinition {
       )
       ..scope({}, _build$dgoLoad)
       ..scope({}, _build$dgoStore)
-      ..for_(methods, (method) => method.writeSnippet(ctx))
+      ..scope({}, _build$dgoGoSize)
+      ..for_(methods, (method) => method.writeSnippet())
       ..sln('}')
       ..if_(
         renameTo.isNotEmpty,
@@ -107,6 +108,20 @@ class TypeDefinition {
     ..sln('final ${ir.dartType} \$inner;')
     ..sln('const $entryName(this.\$inner);');
 
+  void _build$dgoGoSize() => ctx
+    ..if_(
+      ir.isGoNotDynamic,
+      () => ctx
+        ..sln('final \$dgoGoSize = ${ir.goSize};')
+        ..sln(),
+      else_: () => ctx
+        ..sln('\$core.int get \$dgoGoSize ')
+        ..sln('{\$core.int $vSize = 0;')
+        ..sln('final $vHolder = this;')
+        ..then(ir.writeSnippet$dgoGoSize)
+        ..sln('return $vSize; }'),
+    );
+
   void _build$dgoLoad() => ctx
     ..sln()
     ..sln('static ${ir.outerDartType} '
@@ -122,7 +137,7 @@ class TypeDefinition {
 
   void _build$dgoStore() => ctx
     ..sln()
-    ..sln('\$core.int'
+    ..sln('\$core.int '
         '\$dgoStore(\$core.List<\$core.dynamic> $vArgs, \$core.int $vIndex) {')
     ..sln('final $vHolder = this;')
     ..then(ir.writeSnippet$dgoStore)

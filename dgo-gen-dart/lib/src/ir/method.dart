@@ -44,22 +44,49 @@ class Method {
   Method.fromMap(this.self, Map m)
       : funcName = m['Name'],
         funcId = m['FuncId'],
-        params = (m['Params'] as List).map((m) => Param.fromMap(m)).toList(),
+        params =
+            (m['Params'] as List).cast<JsonMap>().map(Param.fromMap).toList(),
         returnType = _buildIRNull(m['Return']),
         returnError = m['ReturnError'];
 
-  void writeSnippet(GeneratorContext ctx) {
+  bool get isGoNotDynamic =>
+      self.isGoNotDynamic && params.every((p) => p.term.isGoNotDynamic);
+
+  void _buildSize() {
+    if (isGoNotDynamic) {
+      final size = params.map((p) => p.term.goSize).sum() + self.goSize;
+      ctx.sln('final $vSize = $size;');
+      return;
+    }
+
+    ctx
+      ..sln()
+      ..sln('\$core.int $vSize = \$dgoGoSize;')
+      ..for_(
+        params,
+        (p) => ctx
+          ..if_(
+            p.term.isGoNotDynamic,
+            () => ctx.sln('$vSize += ${p.term.goSize};'),
+            else_: () => ctx
+              ..sln('{ final $vHolder = ${p.name};')
+              ..then(p.term.writeSnippet$dgoGoSize)
+              ..sln('}'),
+          ),
+      )
+      ..sln();
+  }
+
+  void writeSnippet() {
     var paramSig = params
         .map((p) => '${p.term.outerDartType} ${p.name}')
-        .followedBy(['{\$core.Duration? \$timeout,DgoPort? \$port}']).join(',');
-    var paramSize = params.map((p) => p.term.goSize).sum();
-    paramSize += self.goSize;
+        .followedBy(['{\$core.Duration? \$timeout,DgoPort? \$port}']).joinComma;
     ctx
-      ..sln('Future<${returnType.dartType}>')
-      ..sln('$funcName($paramSig) async {')
+      ..sln('Future<${returnType.dartType}> $funcName($paramSig) async {')
       ..sln('\$port ??= dgo.defaultPort;')
+      ..then(_buildSize)
       ..sln('final $vArgs = \$core.List<\$core.dynamic>'
-          '.filled($paramSize, null, growable: false);')
+          '.filled($vSize, null, growable: false);')
       ..sln('var $vIndex = 0;')
       ..sln('$vIndex = \$dgoStore($vArgs, $vIndex);')
       ..for_(

@@ -16,6 +16,8 @@ extension on JsonMap {
 abstract class IR {
   final int dartSize;
   final int goSize;
+  bool get isGoDynamic => goSize == -1;
+  bool get isGoNotDynamic => !isGoDynamic;
   IR(JsonMap m)
       : dartSize = m['DartSize'],
         goSize = m['GoSize'];
@@ -25,6 +27,15 @@ abstract class IR {
 
   void writeSnippet$dgoLoad();
   void writeSnippet$dgoStore();
+  void writeSnippet$dgoGoSize() {
+    if (isGoNotDynamic) {
+      ctx.sln('$vSize += $goSize;');
+      return;
+    }
+    _writeSnippet$dgoGoSize();
+  }
+
+  void _writeSnippet$dgoGoSize();
 }
 
 abstract class Namable extends IR {
@@ -44,6 +55,8 @@ extension NamableExt on Namable {
   String get _snippetQualifier {
     return isNamed ? '.\$inner' : '';
   }
+
+  String get vHolderQ => '$vHolder$_snippetQualifier';
 }
 
 @immutable
@@ -73,11 +86,25 @@ class OpSlice extends Namable {
   void writeSnippet$dgoStore() {
     final vElement = vHolder.dup;
     ctx
-      ..sln('$vArgs[$vIndex] = $vHolder$_snippetQualifier.length;')
+      ..sln('$vArgs[$vIndex] = $vHolderQ.length;')
       ..sln('$vIndex++;')
-      ..sln('for (final $vElement in $vHolder$_snippetQualifier){')
+      ..sln('for (final $vElement in $vHolderQ){')
       ..alias({vHolder: vElement}, elem.writeSnippet$dgoStore)
       ..sln('}');
+  }
+
+  @override
+  void _writeSnippet$dgoGoSize() {
+    if (elem.isGoNotDynamic) {
+      ctx.sln('$vSize += $vHolderQ.length * ${elem.goSize} + 1;');
+    } else {
+      final vElement = vHolder.dup;
+      ctx
+        ..sln('for (final $vElement in $vHolderQ) {')
+        ..alias({vHolder: vElement}, elem.writeSnippet$dgoGoSize)
+        ..sln('}')
+        ..sln('$vSize += 1;');
+    }
   }
 }
 
@@ -114,14 +141,31 @@ class OpMap extends Namable {
   void writeSnippet$dgoStore() {
     final vElement = vHolder.dup;
     ctx
-      ..sln('$vArgs[$vIndex] = $vHolder$_snippetQualifier.length;')
+      ..sln('$vArgs[$vIndex] = $vHolderQ.length;')
       ..sln('$vIndex++;')
-      ..sln('for (final entry in $vHolder$_snippetQualifier.entries){')
+      ..sln('for (final entry in $vHolderQ.entries){')
       ..sln('{final $vElement = entry.key;')
       ..alias({vHolder: vElement}, key.writeSnippet$dgoStore)
       ..sln('}{final $vElement = entry.value;')
       ..alias({vHolder: vElement}, value.writeSnippet$dgoStore)
       ..sln('}}');
+  }
+
+  @override
+  void _writeSnippet$dgoGoSize() {
+    if (value.isGoNotDynamic) {
+      ctx
+        ..sln('$vSize +=')
+        ..sln('$vHolderQ.length * (${key.goSize}+${value.goSize}) + 1;');
+    } else {
+      final vElement = vHolder.dup;
+      ctx
+        ..sln('for (final $vElement in $vHolder.values) {')
+        ..sln('$vSize += ${key.goSize};')
+        ..alias({vHolder: vElement}, value.writeSnippet$dgoGoSize)
+        ..sln('}')
+        ..sln('$vSize += 1;');
+    }
   }
 }
 
@@ -152,8 +196,17 @@ class OpArray extends Namable {
   void writeSnippet$dgoStore() {
     final vElement = vHolder.dup;
     ctx
-      ..sln('for (final $vElement in $vHolder$_snippetQualifier){')
+      ..sln('for (final $vElement in $vHolderQ){')
       ..alias({vHolder: vElement}, elem.writeSnippet$dgoStore)
+      ..sln('}');
+  }
+
+  @override
+  void _writeSnippet$dgoGoSize() {
+    final vElement = vHolder.dup;
+    ctx
+      ..sln('for (final $vElement in $vHolderQ) {')
+      ..alias({vHolder: vElement}, elem.writeSnippet$dgoGoSize)
       ..sln('}');
   }
 }
@@ -200,6 +253,9 @@ class OpBasic extends Namable {
       ..sln('$vArgs[$vIndex] = $vHolder$_snippetQualifier;')
       ..sln('$vIndex++;');
   }
+
+  @override
+  void _writeSnippet$dgoGoSize() {}
 }
 
 @immutable
@@ -222,6 +278,11 @@ class OpCoerce extends IR {
   void writeSnippet$dgoStore() {
     ctx.sln('$vIndex = $vHolder.\$dgoStore($vArgs, $vIndex);');
   }
+
+  @override
+  void _writeSnippet$dgoGoSize() {
+    ctx.sln('$vSize += $vHolder.\$dgoGoSize;');
+  }
 }
 
 @immutable
@@ -240,6 +301,9 @@ class OpPtrTo extends Namable {
 
   @override
   void writeSnippet$dgoStore() => elem.writeSnippet$dgoStore();
+
+  @override
+  void _writeSnippet$dgoGoSize() => elem._writeSnippet$dgoGoSize();
 }
 
 @immutable
@@ -268,6 +332,9 @@ class OpField extends IR {
 
   @override
   void writeSnippet$dgoStore() => term.writeSnippet$dgoStore();
+
+  @override
+  void _writeSnippet$dgoGoSize() => term._writeSnippet$dgoGoSize();
 }
 
 @immutable
@@ -283,6 +350,9 @@ class OpStruct extends Namable {
 
   @override
   String get dartType => currentContext.importer.qualifyUri(myUri!);
+
+  Iterable<OpField> get goFields =>
+      fields.values.where((field) => field.sendBackToGo);
 
   @override
   void writeSnippet$dgoLoad() {
@@ -305,8 +375,7 @@ class OpStruct extends Namable {
 
   @override
   void writeSnippet$dgoStore() {
-    ctx.for_(fields.values, (field) {
-      if (!field.sendBackToGo) return;
+    ctx.for_(goFields, (field) {
       final vField = vHolder.dup;
       ctx
         ..sln(' // Storing Field ${field.name}')
@@ -315,6 +384,22 @@ class OpStruct extends Namable {
         ..alias({vHolder: vField}, field.writeSnippet$dgoStore)
         ..sln('}');
     });
+  }
+
+  @override
+  void _writeSnippet$dgoGoSize() {
+    final vField = vHolder.dup;
+    ctx.for_(
+      goFields,
+      (field) => ctx.if_(
+        field.isGoNotDynamic,
+        () => ctx.sln('$vSize += ${field.goSize};'),
+        else_: () => ctx
+          ..sln('{ final $vField = $vHolder.${field.name};')
+          ..alias({vHolder: vField}, field.writeSnippet$dgoGoSize)
+          ..sln('}'),
+      ),
+    );
   }
 }
 
@@ -348,6 +433,16 @@ class OpOptional extends IR {
       ..sln('$vIndex++;')
       ..sln('} else {')
       ..then(term.writeSnippet$dgoStore)
+      ..sln('}');
+  }
+
+  @override
+  void _writeSnippet$dgoGoSize() {
+    ctx
+      ..sln('if ($vHolder == null) {')
+      ..sln('$vSize += 1;')
+      ..sln('} else {')
+      ..then(term.writeSnippet$dgoGoSize)
       ..sln('}');
   }
 }
