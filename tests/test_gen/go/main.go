@@ -50,4 +50,14 @@ func (Tester) ReturnsExternalType() subpack.StructInSubpack {
 	return subpack.StructInSubpack{FieldString: "string"}
 }
 
+//dgo:export
+type TesterWithField struct {
+	field int
+}
+
+//dgo:export
+func (t TesterWithField) ReturnsSelf() TesterWithField {
+	return t
+}
+
 func main() {}

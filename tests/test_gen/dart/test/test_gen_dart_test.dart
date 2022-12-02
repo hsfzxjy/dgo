@@ -50,4 +50,11 @@ void main() async {
       expect(result.FieldString, 'string');
     });
   });
+
+  group('TesterWithField', () {
+    test('ReturnsSelf', () async {
+      final result = await TesterWithField(42).ReturnsSelf();
+      expect(result.field, 42);
+    });
+  });
 }
