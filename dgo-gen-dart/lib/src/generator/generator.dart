@@ -39,8 +39,9 @@ class Generator {
 
     setFile(file, {
       vArgs: '\$args',
-      vIndex: '\$startIndex',
-      vHolder: '\$instance',
+      vIndex: '\$index',
+      vHolder: '\$o',
+      vSize: '\$size',
     });
 
     ctx

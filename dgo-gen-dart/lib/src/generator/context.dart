@@ -77,5 +77,6 @@ void setFile(File file, Map<GeneratorSymbol, String> symbolMap) {
 const vArgs = GeneratorSymbol('#!vArgs');
 const vIndex = GeneratorSymbol('#!vIndex');
 const vHolder = GeneratorSymbol('#!vHolder');
+const vSize = GeneratorSymbol('#!vSize');
 
 typedef JsonMap = Map<String, dynamic>;

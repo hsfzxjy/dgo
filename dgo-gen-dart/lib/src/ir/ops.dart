@@ -59,15 +59,14 @@ class OpSlice extends Namable {
 
   @override
   void writeSnippet$dgoLoad() {
+    final vSize2 = vSize.dup;
     ctx
-      ..sln('{')
-      ..sln('final size = $vArgs.current;$vArgs.moveNext();')
-      ..sln('$vHolder = \$core.List.generate(size, (index) {')
-      ..sln('${elem.dartType} instance;')
-      ..scope({vHolder: 'instance'}, elem.writeSnippet$dgoLoad)
-      ..sln('return instance;')
-      ..sln('}, growable: false);')
-      ..sln('}');
+      ..sln('final $vSize2 = $vArgs.current;$vArgs.moveNext();')
+      ..sln('$vHolder = \$core.List.generate($vSize2, (_) {')
+      ..sln('${elem.dartType} $vHolder;')
+      ..scope({}, elem.writeSnippet$dgoLoad)
+      ..sln('return $vHolder;')
+      ..sln('}, growable: false);');
   }
 
   @override
@@ -76,8 +75,7 @@ class OpSlice extends Namable {
     ctx
       ..sln('$vArgs[$vIndex] = $vHolder$_snippetQualifier.length;')
       ..sln('$vIndex++;')
-      ..sln('for (var i=0;i<$vHolder$_snippetQualifier.length;i++){')
-      ..sln('final $vElement = $vHolder$_snippetQualifier[i];')
+      ..sln('for (final $vElement in $vHolder$_snippetQualifier){')
       ..alias({vHolder: vElement}, elem.writeSnippet$dgoStore)
       ..sln('}');
   }
@@ -98,18 +96,18 @@ class OpMap extends Namable {
 
   @override
   void writeSnippet$dgoLoad() {
+    final vSize2 = vSize.dup;
     ctx
-      ..sln('{')
-      ..sln('final size = $vArgs.current;$vArgs.moveNext();')
-      ..sln(
-          '$vHolder = \$core.Map.fromEntries(\$core.Iterable.generate(size, (_) {')
+      ..sln('final $vSize2 = $vArgs.current; $vArgs.moveNext();')
+      ..sln('$vHolder = \$core.Map.fromEntries(')
+      ..sln('\$core.Iterable.generate($vSize2, (_) {')
       ..sln('${key.dartType} key;')
       ..scope({vHolder: 'key'}, key.writeSnippet$dgoLoad)
       ..sln('${value.dartType} value;')
       ..scope({vHolder: 'value'}, value.writeSnippet$dgoLoad)
       ..sln('return \$core.MapEntry(key, value);')
-      ..sln('}));')
-      ..sln('}');
+      ..sln('})')
+      ..sln(');');
   }
 
   @override
@@ -144,9 +142,9 @@ class OpArray extends Namable {
   void writeSnippet$dgoLoad() {
     ctx
       ..sln('$vHolder = \$core.List.generate($len, (index) {')
-      ..sln('${elem.dartType} instance;')
-      ..scope({vHolder: 'instance'}, elem.writeSnippet$dgoLoad)
-      ..sln('return instance;')
+      ..sln('${elem.dartType} $vHolder;')
+      ..scope({}, elem.writeSnippet$dgoLoad)
+      ..sln('return $vHolder;')
       ..sln('}, growable: false);');
   }
 
@@ -154,8 +152,7 @@ class OpArray extends Namable {
   void writeSnippet$dgoStore() {
     final vElement = vHolder.dup;
     ctx
-      ..sln('for (var i=0;i<$len;i++){')
-      ..sln('final $vElement = $vHolder$_snippetQualifier[i];')
+      ..sln('for (final $vElement in $vHolder$_snippetQualifier){')
       ..alias({vHolder: vElement}, elem.writeSnippet$dgoStore)
       ..sln('}');
   }
@@ -298,8 +295,11 @@ class OpStruct extends Namable {
         ctx
           ..sln(' // Loading Field ${field.name}')
           ..sln('${field.dartType} $vField;')
-          ..alias({vHolder: vField}, field.writeSnippet$dgoLoad);
+          ..sln('{')
+          ..alias({vHolder: vField}, field.writeSnippet$dgoLoad)
+          ..sln('}');
       })
+      ..sln(' // Constructing instance')
       ..sln('$vHolder = $structName(${vFields.joinComma});');
   }
 
@@ -310,8 +310,10 @@ class OpStruct extends Namable {
       final vField = vHolder.dup;
       ctx
         ..sln(' // Storing Field ${field.name}')
+        ..sln('{')
         ..sln('final $vField = $vHolder.${field.name};')
-        ..alias({vHolder: vField}, field.writeSnippet$dgoStore);
+        ..alias({vHolder: vField}, field.writeSnippet$dgoStore)
+        ..sln('}');
     });
   }
 }
