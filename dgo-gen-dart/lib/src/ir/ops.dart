@@ -275,12 +275,13 @@ class OpField extends IR {
 
 @immutable
 class OpStruct extends Namable {
-  final LinkedHashMap<String, OpField> fields;
+  final Map<String, OpField> fields;
 
   OpStruct.fromMap(JsonMap m)
-      : fields = LinkedHashMap.fromEntries((m['Fields'] as List)
+      : fields = (m['Fields'] as List)
             .map((e) => MapEntry(e['Name'] as String, _buildIR(e) as OpField))
-            .where((entry) => entry.value.sendToDart)),
+            .where((entry) => entry.value.sendToDart)
+            .asMap(ordered: true),
         super(m);
 
   @override

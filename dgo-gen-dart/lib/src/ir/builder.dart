@@ -1,6 +1,6 @@
 part of 'ir.dart';
 
-final _irBuilders = Map<String, IR Function(JsonMap)>.fromEntries([
+final _irBuilders = [
   OpArray,
   OpBasic,
   OpCoerce,
@@ -15,9 +15,9 @@ final _irBuilders = Map<String, IR Function(JsonMap)>.fromEntries([
   final className = type.toString();
   return MapEntry(
     className.substring(2),
-    (JsonMap m) => mirror.newInstance(Symbol('fromMap'), [m]).reflectee,
+    (JsonMap m) => mirror.newInstance(Symbol('fromMap'), [m]).reflectee as IR,
   );
-}));
+}).asMap();
 
 IR _buildIR(JsonMap m) {
   final String opName = m['Op'];
