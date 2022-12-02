@@ -72,13 +72,13 @@ class OpSlice extends Namable {
 
   @override
   void writeSnippet$dgoStore() {
-    final elementName = ctx.pickUnique('\$element');
+    final vElement = vHolder.dup;
     ctx
       ..sln('$vArgs[$vIndex] = $vHolder$_snippetQualifier.length;')
       ..sln('$vIndex++;')
       ..sln('for (var i=0;i<$vHolder$_snippetQualifier.length;i++){')
-      ..sln('final $elementName = $vHolder$_snippetQualifier[i];')
-      ..scope({vHolder: elementName}, elem.writeSnippet$dgoStore)
+      ..sln('final $vElement = $vHolder$_snippetQualifier[i];')
+      ..alias({vHolder: vElement}, elem.writeSnippet$dgoStore)
       ..sln('}');
   }
 }
@@ -114,15 +114,15 @@ class OpMap extends Namable {
 
   @override
   void writeSnippet$dgoStore() {
-    final elementName = ctx.pickUnique('\$element');
+    final vElement = vHolder.dup;
     ctx
       ..sln('$vArgs[$vIndex] = $vHolder$_snippetQualifier.length;')
       ..sln('$vIndex++;')
       ..sln('for (final entry in $vHolder$_snippetQualifier.entries){')
-      ..sln('{final $elementName = entry.key;')
-      ..scope({vHolder: elementName}, key.writeSnippet$dgoStore)
-      ..sln('}{final $elementName = entry.value;')
-      ..scope({vHolder: elementName}, value.writeSnippet$dgoStore)
+      ..sln('{final $vElement = entry.key;')
+      ..alias({vHolder: vElement}, key.writeSnippet$dgoStore)
+      ..sln('}{final $vElement = entry.value;')
+      ..alias({vHolder: vElement}, value.writeSnippet$dgoStore)
       ..sln('}}');
   }
 }
@@ -152,11 +152,11 @@ class OpArray extends Namable {
 
   @override
   void writeSnippet$dgoStore() {
-    final elementName = ctx.pickUnique('\$element');
+    final vElement = vHolder.dup;
     ctx
       ..sln('for (var i=0;i<$len;i++){')
-      ..sln('final $elementName = $vHolder$_snippetQualifier[i];')
-      ..scope({vHolder: elementName}, elem.writeSnippet$dgoStore)
+      ..sln('final $vElement = $vHolder$_snippetQualifier[i];')
+      ..alias({vHolder: vElement}, elem.writeSnippet$dgoStore)
       ..sln('}');
   }
 }

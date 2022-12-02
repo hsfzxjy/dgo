@@ -21,8 +21,7 @@ extension GeneratorContextExt on GeneratorContext {
   void scope(Map<GeneratorSymbol, String> symbolMap, Function fn) {
     final newContext = GeneratorContext(buffer, importer)
       .._symbols.addAll(_symbols)
-      .._symbols.addAll(symbolMap)
-      .._usedNames.addAll(_usedNames.followedBy(symbolMap.values));
+      .._symbols.addAll(symbolMap);
     GeneratorContext._stack.add(newContext);
     try {
       fn();
@@ -30,4 +29,7 @@ extension GeneratorContextExt on GeneratorContext {
       GeneratorContext._stack.removeLast();
     }
   }
+
+  void alias(Map<GeneratorSymbol, GeneratorSymbol> symbolMap, Function fn) =>
+      scope(symbolMap.mapMap((e) => MapEntry(e.key, this[e.value])), fn);
 }
