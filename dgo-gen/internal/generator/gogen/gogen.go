@@ -429,13 +429,6 @@ func buildFunction_DgoStore(etype *exported.Type, term ir.Term, g *Group, looper
 func buildFunction_method(etype *exported.Type, method exported.TypeMethod, g *Group) {
 	g.Var().Id("cobj").Op("*").Qual(dgoMod, "Dart_CObject")
 	g.Id("_index_").Op(":=").Lit(0)
-	g.Var().Id("o").Id(etype.Name())
-	g.Id("_index_").
-		Op("=").
-		Id("o").Dot("DgoLoad").
-		Call(
-			Id("arr"),
-			Id("_index_"))
 
 	g.Var().Id("callback").Uint64()
 	g.Add(loadIntoBasic(Id("arr").Index(Id("_index_")), Qual("C", "uint64_t"), Op("&").Id("callback"), Uint64()))
@@ -444,6 +437,14 @@ func buildFunction_method(etype *exported.Type, method exported.TypeMethod, g *G
 	if method.Return != nil {
 		g.Id("callback").Op("|=").Uint64().Call(Qual(dgoMod, "CF_PACKARRAY"))
 	}
+
+	g.Var().Id("o").Id(etype.Name())
+	g.Id("_index_").
+		Op("=").
+		Id("o").Dot("DgoLoad").
+		Call(
+			Id("arr"),
+			Id("_index_"))
 
 	for paramId, param := range method.Params {
 		paramName := fmt.Sprintf("arg%d", paramId)
