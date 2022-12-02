@@ -37,6 +37,16 @@ func (Tester) ReturnsSlice(n int) (ret []string) {
 }
 
 //dgo:export
+func (Tester) ReturnsIdentitySlice(x []int) []int {
+	return x
+}
+
+//dgo:export
+func (Tester) ReturnsIdentityMap(x map[int]string) map[int]string {
+	return x
+}
+
+//dgo:export
 func (Tester) ReturnsMap(n int) (ret map[int]string) {
 	ret = make(map[int]string)
 	for i := 0; i < n; i++ {

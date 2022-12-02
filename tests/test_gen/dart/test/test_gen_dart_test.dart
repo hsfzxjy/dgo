@@ -39,10 +39,20 @@ void main() async {
       expect(await f(2), equals(['0', '1']));
     });
 
+    test('ReturnsIdentitySlice', () async {
+      final f = Tester().ReturnsIdentitySlice;
+      expect(await f([42, 84]), equals([42, 84]));
+    });
+
     test('ReturnsMap', () async {
       final f = Tester().ReturnsMap;
       expect(await f(1), equals({0: '0'}));
       expect(await f(2), equals({0: '0', 1: '1'}));
+    });
+
+    test('ReturnsIdentityMap', () async {
+      final f = Tester().ReturnsIdentityMap;
+      expect(await f({42: '84'}), equals({42: '84'}));
     });
 
     test('ReturnsExternalType', () async {
