@@ -65,24 +65,33 @@ RETURN:
 	return &s
 }
 
-func loadIntoBasic(src, srcType, dst, dstType Code) *Statement {
-	return Op("*").Add(dst).Op("=").
+func incIndex(g *Group) {
+	g.Id("_index_").Op("++")
+}
+
+func arrIndex() Code {
+	return Id("arr").Index(Id("_index_"))
+}
+
+func loadIntoBasic(g *Group, src, srcType, dst, dstType Code) {
+	g.Add(dst).Op("=").
 		Add(dstType).
 		Parens(
 			Op("*").
 				Parens(Op("*").Add(srcType)).
 				Parens(
 					Qual("unsafe", "Pointer").Parens(Op("&").Add(src).Dot("Value"))))
+	incIndex(g)
 }
 
-func loadIntoString(src, idx, dst Code) *Statement {
-	return Block(
+func loadIntoString(g *Group, src, dst Code) {
+	g.Block(
 		Id("pStr").Op(":=").
 			Op("*").
 			Parens(Op("*").Op("*").Index(Qual(dgoMod, "MAX_ARRAY_LEN")).Byte()).
 			Parens(
 				Qual("unsafe", "Pointer").
-					Parens(Op("&").Add(src).Index(idx).Dot("Value"))),
+					Parens(Op("&").Add(src).Dot("Value"))),
 
 		Id("length").Op(":=").
 			Qual("bytes", "IndexByte").
@@ -104,36 +113,38 @@ func loadIntoString(src, idx, dst Code) *Statement {
 			Id("byteSlice").Index(Empty(), Id("length")),
 			Id("pStr").Index(Empty(), Id("length"))),
 
-		Op("*").Add(dst).Op("=").String().Parens(Id("byteSlice")))
+		Add(dst).Op("=").String().Parens(Id("byteSlice")))
+	incIndex(g)
 }
 
-func loadIntoInt(src, idx, dst, dstType Code) *Statement {
-	return Block(
-		Id("_obj_").Op(":=").Add(src).Index(idx),
+func loadIntoInt(g *Group, src, dst, dstType Code) {
+	g.Block(
+		Id("_obj_").Op(":=").Add(src),
 		If(Id("_obj_").Dot("Type").
 			Op("==").
 			Qual(dgoMod, "Dart_CObject_kInt32")).
-			Block(
-				loadIntoBasic(Id("_obj_"), Qual("C", "int32_t"), dst, dstType)).
+			BlockFunc(func(g *Group) {
+				loadIntoBasic(g, Id("_obj_"), Qual("C", "int32_t"), dst, dstType)
+			}).
 			Else().
-			Block(
-				loadIntoBasic(Id("_obj_"), Qual("C", "int64_t"), dst, dstType)),
+			BlockFunc(func(g *Group) {
+				loadIntoBasic(g, Id("_obj_"), Qual("C", "int64_t"), dst, dstType)
+			}),
 	)
 }
 
-func loadBasic(t *ir.Basic, g *Group) {
+func loadBasic(t *ir.Basic, g *Group, holder Code) {
 	info := t.TypeInfo
 	switch {
 	case info&types.IsBoolean != 0:
-		g.Add(loadIntoBasic(Id("arr").Index(Id("_index_")), Qual("C", "bool"), Id("o"), Id("bool")))
+		loadIntoBasic(g, arrIndex(), Qual("C", "bool"), holder, Id("bool"))
 	case info&types.IsInteger != 0:
-		g.Add(loadIntoInt(Id("arr"), Id("_index_"), Id("o"), Id(t.TypeName)))
+		loadIntoInt(g, arrIndex(), holder, Id(t.TypeName))
 	case info&types.IsFloat != 0:
-		g.Add(loadIntoBasic(Id("arr").Index(Id("_index_")), Qual("C", "double"), Id("o"), Id(t.TypeName)))
+		loadIntoBasic(g, arrIndex(), Qual("C", "double"), holder, Id(t.TypeName))
 	case info&types.IsString != 0:
-		g.Add(loadIntoString(Id("arr"), Id("_index_"), Id("o")))
+		loadIntoString(g, arrIndex(), holder)
 	}
-	g.Add(Id("_index_").Op("++"))
 }
 
 func buildFunction_DgoLoad(etype *exported.Type, term ir.Term, g *Group, looper *looper) {
@@ -175,10 +186,10 @@ func buildFunction_DgoLoad(etype *exported.Type, term ir.Term, g *Group, looper 
 					Op(":=").
 					Parens(Op("*").Id(t.TypeName)).
 					Parens(Id("o"))
-				loadBasic(t, g)
+				loadBasic(t, g, Op("*o"))
 			})
 		} else {
-			loadBasic(t, g)
+			loadBasic(t, g, Op("*o"))
 		}
 	case *ir.Array:
 		if t.Len > 0 {
@@ -200,8 +211,7 @@ func buildFunction_DgoLoad(etype *exported.Type, term ir.Term, g *Group, looper 
 		}
 	case *ir.Slice:
 		g.Var().Id("size").Int()
-		g.Add(loadIntoInt(Id("arr"), Id("_index_"), Op("&").Id("size"), Int()))
-		g.Id("_index_").Op("++")
+		loadIntoInt(g, arrIndex(), Id("size"), Int())
 		g.Op("*").Id("o").Op("=").Make(typeNameOf(etype, t), Id("size"))
 		Looper := looper.BeginRep()
 		g.
@@ -218,8 +228,7 @@ func buildFunction_DgoLoad(etype *exported.Type, term ir.Term, g *Group, looper 
 		looper.EndRep()
 	case *ir.Map:
 		g.Var().Id("size").Int()
-		g.Add(loadIntoInt(Id("arr"), Id("_index_"), Op("&").Id("size"), Int()))
-		g.Id("_index_").Op("++")
+		loadIntoInt(g, arrIndex(), Id("size"), Int())
 		g.Op("*").Id("o").Op("=").Make(typeNameOf(etype, t), Id("size"))
 		Looper := looper.BeginRep()
 		g.
@@ -259,7 +268,7 @@ func buildFunction_DgoLoad(etype *exported.Type, term ir.Term, g *Group, looper 
 	}
 }
 
-func storeFromBasic(g *Group, kind, ctype Code) {
+func storeFromBasic(g *Group, holder, kind, ctype Code) {
 	g.Id("cobj").
 		Op("=").
 		Op("&").Id("arr").Index(Id("_index_"))
@@ -270,12 +279,12 @@ func storeFromBasic(g *Group, kind, ctype Code) {
 		Op("*").Parens(Op("*").Add(ctype)).
 		Parens(Qual("unsafe", "Pointer").Parens(Op("&").Id("cobj").Dot("Value"))).
 		Op("=").
-		Add(ctype).Parens(Id("*").Id("o"))
+		Add(ctype).Parens(holder)
 }
 
-func storeFromString(g *Group) {
+func storeFromString(g *Group, holder Code) {
 	g.Block(
-		Id("o").Op(":=").Op("*").Id("o"),
+		Id("o").Op(":=").Add(holder),
 
 		Empty().
 			If(Len(Id("o")).Op("==").Lit(0).
@@ -305,21 +314,21 @@ func storeFromString(g *Group) {
 			Id("header").Dot("Data"))
 }
 
-func storeFromInt(g *Group) {
-	storeFromBasic(g, Qual(dgoMod, "Dart_CObject_kInt64"), Qual("C", "int64_t"))
+func storeFromInt(g *Group, holder Code) {
+	storeFromBasic(g, holder, Qual(dgoMod, "Dart_CObject_kInt64"), Qual("C", "int64_t"))
 }
 
-func storeBasic(t *ir.Basic, g *Group) {
+func storeBasic(t *ir.Basic, g *Group, holder Code) {
 	info := t.TypeInfo
 	switch {
 	case info&types.IsBoolean != 0:
-		storeFromBasic(g, Qual(dgoMod, "Dart_CObject_kBool"), Qual("C", "bool"))
+		storeFromBasic(g, holder, Qual(dgoMod, "Dart_CObject_kBool"), Qual("C", "bool"))
 	case info&types.IsInteger != 0:
-		storeFromInt(g)
+		storeFromInt(g, holder)
 	case info&types.IsFloat != 0:
-		storeFromBasic(g, Qual(dgoMod, "Dart_CObject_kDouble"), Qual("C", "double"))
+		storeFromBasic(g, holder, Qual(dgoMod, "Dart_CObject_kDouble"), Qual("C", "double"))
 	case info&types.IsString != 0:
-		storeFromString(g)
+		storeFromString(g, holder)
 	}
 	g.Id("_index_").Op("++")
 }
@@ -353,7 +362,7 @@ func buildFunction_DgoStore(etype *exported.Type, term ir.Term, g *Group, looper
 				Id("_index_"),
 				Id("keepAlive"))
 	case *ir.Basic:
-		storeBasic(t, g)
+		storeBasic(t, g, Op("*o"))
 	case *ir.Array:
 		if t.Len > 0 {
 			Looper := looper.BeginRep()
@@ -373,8 +382,7 @@ func buildFunction_DgoStore(etype *exported.Type, term ir.Term, g *Group, looper
 	case *ir.Slice:
 		g.BlockFunc(func(g *Group) {
 			g.Id("size").Op(":=").Len(Op("*").Id("o"))
-			g.Id("o").Op(":=&").Id("size")
-			storeFromInt(g)
+			storeFromInt(g, Id("size"))
 			g.Id("_index_").Op("++")
 		})
 		Looper := looper.BeginRep()
@@ -391,8 +399,7 @@ func buildFunction_DgoStore(etype *exported.Type, term ir.Term, g *Group, looper
 	case *ir.Map:
 		g.BlockFunc(func(g *Group) {
 			g.Id("size").Op(":=").Len(Op("*").Id("o"))
-			g.Id("o").Op(":=&").Id("size")
-			storeFromInt(g)
+			storeFromInt(g, Id("size"))
 			g.Id("_index_").Op("++")
 		})
 		Looper := looper.BeginRep()
@@ -431,8 +438,7 @@ func buildFunction_method(etype *exported.Type, method exported.TypeMethod, g *G
 	g.Id("_index_").Op(":=").Lit(0)
 
 	g.Var().Id("callback").Uint64()
-	g.Add(loadIntoBasic(Id("arr").Index(Id("_index_")), Qual("C", "uint64_t"), Op("&").Id("callback"), Uint64()))
-	g.Add(Id("_index_").Op("++"))
+	loadIntoBasic(g, arrIndex(), Qual("C", "uint64_t"), Id("callback"), Uint64())
 	g.Id("callback").Op("|=").Uint64().Call(Qual(dgoMod, "CF_POP"))
 	if method.Return != nil {
 		g.Id("callback").Op("|=").Uint64().Call(Qual(dgoMod, "CF_PACKARRAY"))
@@ -493,8 +499,7 @@ func buildFunction_method(etype *exported.Type, method exported.TypeMethod, g *G
 			g.Var().Id("arr").Index(Lit(nExtraArgs+ir.DartSizeof(r))).Qual(dgoMod, "Dart_CObject")
 		}
 		g.BlockFunc(func(g *Group) {
-			g.Id("o").Op(":=").Op("&").Id("callback")
-			storeFromInt(g)
+			storeFromInt(g, Id("callback"))
 			g.Id("_index_").Op("++")
 		})
 	}
@@ -503,8 +508,7 @@ func buildFunction_method(etype *exported.Type, method exported.TypeMethod, g *G
 		g.If(Id("err").Op("!=").Nil()).
 			BlockFunc(func(g *Group) {
 				g.Id("errString").Op(":=").Id("err").Dot("Error").Call()
-				g.Id("o").Op(":=").Op("&").Id("errString")
-				storeFromString(g)
+				storeFromString(g, Id("errString"))
 				g.Id("_index_").Op("++")
 			}).
 			Else().BlockFunc(func(g *Group) {
