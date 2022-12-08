@@ -40,7 +40,13 @@ func NewExports(goModDir string) *Exports {
 	return ex
 }
 
-func (ex *Exports) Package(name string) interfaces.Package { return ex.Packages[name] }
+func (ex *Exports) Package(name string) interfaces.Package {
+	if p, ok := ex.Packages[name]; ok {
+		return p
+	} else {
+		return nil
+	}
+}
 
 func (ex *Exports) ParsePackages(pkgPath string, isDep bool) {
 	pkgs := LoadPackages(pkgPath + "/...")
