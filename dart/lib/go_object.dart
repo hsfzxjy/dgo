@@ -3,7 +3,7 @@ part of dgo;
 abstract class DgoObject {
   const DgoObject();
 
-  @protected
+  @visibleForOverriding
   int $dgoStore(List<dynamic> args, int index);
 
   int get $dgoGoSize;
