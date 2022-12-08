@@ -48,6 +48,9 @@ LOOP:
 			break LOOP
 		case *ir.Struct:
 			break LOOP
+		case *ir.PinToken:
+			s.Add(pinToken(typeNameOf(etype, t.Term)))
+			break LOOP
 		default:
 			panic("unreachable")
 		}
@@ -71,6 +74,14 @@ func incIndex() *Statement {
 
 func arrIndex() *Statement {
 	return Id("arr").Index(Id("_index_"))
+}
+
+func untypedPinToken() *Statement {
+	return pinToken(Struct())
+}
+
+func pinToken(typeParam Code) *Statement {
+	return Qual(dgoMod, "PinToken").Index(typeParam)
 }
 
 func loadIntoBasic(g *Group, src, srcType, dst, dstType Code) {
@@ -265,6 +276,19 @@ func buildFunction_DgoLoad(etype *exported.Type, term ir.Term, g *Group, looper 
 				g.Id("o").Op(":=").Op("&").Id("o").Dot("Value")
 				buildFunction_DgoLoad(etype, t.Term, g, looper)
 			})
+	case *ir.PinToken:
+		g.BlockFunc(func(g *Group) {
+			g.Var().Id("version").Uint16()
+			g.Var().Id("data").Uintptr()
+			loadIntoInt(g, arrIndex(), Id("version"), Uint16())
+			loadIntoInt(g, arrIndex(), Id("data"), Uintptr())
+			g.Op("*o").Op("=").
+				Add(Parens(typeNameOf(etype, t))).
+				Parens(
+					Id("dgoUntypedPinTokenFromRaw").
+						Call(Id("version"), Id("data")),
+				)
+		})
 	}
 }
 
@@ -429,6 +453,17 @@ func buildFunction_DgoStore(etype *exported.Type, term ir.Term, g *Group, looper
 				g.Id("o").Op(":=").Op("&").Id("o").Dot("Value")
 				buildFunction_DgoStore(etype, t.Term, g, looper)
 			})
+	case *ir.PinToken:
+		g.BlockFunc(func(g *Group) {
+			g.List(Id("version"), Id("data")).Op(":=").
+				Id("dgoUntypedPinTokenExtract").
+				Call(untypedPinToken().Call(Op("*o")))
+			storeFromInt(g, Id("version"))
+			storeFromInt(g, Id("data"))
+			g.Id("o").Op(":=").Id("o").Dot("Data").Call()
+			buildFunction_DgoStore(etype, t.Term, g, looper)
+		})
+		g.Id("dgoUntypedPinTokenLeak").Call(Id("dgoUntypedPinToken").Call(Op("*o")))
 	}
 }
 
@@ -640,9 +675,30 @@ type Generator struct {
 
 func (d *Generator) buildFunctionsForType(etype *exported.Type, file *File) {
 	name := etype.Name()
+	typeName := typeNameOf(etype, etype.Term)
 
 	file.Commentf("/*** GENERATED CODE FOR %s ***/", name).
 		Line()
+
+	if etype.IsPinnable {
+		file.Func().
+			Params(Id("o").Op("*").Id(name)).
+			Id("NewToken").
+			Params().
+			Add(pinToken(typeName)).
+			Block(Empty().
+				If(Qual("unsafe", "Pointer").Call(Id("o")).
+					Op("!=").Qual("unsafe", "Pointer").
+					Call(Op("&").Id("o").Dot("PinMeta"))).
+				Block(
+					Panic(Lit("dgo:go: pinnable object must have an embedded"+
+						" dgo.PinMeta as the first field"))),
+
+				Return(Parens(pinToken(typeName)).
+					Parens(Id("dgoPinMetaNewToken").Call(
+						Op("&").Id("o").Dot("PinMeta"))),
+				))
+	}
 
 	file.Func().
 		Params(Id("o").Op("*").Id(name)).
@@ -731,6 +787,37 @@ func (d *Generator) buildStub(dstDir string, pkgName string) {
 		Line().
 		Line().
 		Var().Id("_").Qual("unsafe", "Pointer")
+
+	file.
+		Type().Id("dgoUntypedPinToken").Op("=").Add(untypedPinToken()).
+		Line().
+		Line().
+		Comment("//go:linkname dgoPinMetaNewToken github.com/hsfzxjy/dgo/go.pinMetaNewToken").
+		Line().
+		Func().Id("dgoPinMetaNewToken").
+		Params(Id("meta").Op("*").Qual(dgoMod, "PinMeta")).
+		Add(untypedPinToken()).
+		Line().
+		Line().
+		Comment("//go:linkname dgoUntypedPinTokenFromRaw github.com/hsfzxjy/dgo/go.untypedTokenFromRaw").
+		Line().
+		Func().Id("dgoUntypedPinTokenFromRaw").
+		Params(Id("version").Uint16(), Id("data").Uintptr()).
+		Id("dgoUntypedPinToken").
+		Line().
+		Line().
+		Comment("//go:linkname dgoUntypedPinTokenLeak github.com/hsfzxjy/dgo/go.untypedTokenLeak").
+		Line().
+		Func().Id("dgoUntypedPinTokenLeak").
+		Params(Id("token").Id("dgoUntypedPinToken")).
+		Line().
+		Line().
+		Comment("//go:linkname dgoUntypedPinTokenExtract github.com/hsfzxjy/dgo/go.untypedTokenExtract").
+		Line().
+		Func().Id("dgoUntypedPinTokenExtract").
+		Params(Id("token").Add(untypedPinToken())).
+		Parens(List(Id("version").Uint16(), Id("data").Uintptr())).
+		Line()
 }
 
 func (d *Generator) AddType(etype *exported.Type) {
