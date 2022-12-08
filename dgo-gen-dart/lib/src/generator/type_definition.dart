@@ -92,7 +92,7 @@ class TypeDefinition {
     ..sln();
 
   void _buildHeaderClass() => ctx
-    ..sln('@immutable')
+    ..sln('@\$meta.immutable')
     ..sln('class $entryName {');
 
   void _buildConstructorStruct() => ctx
@@ -109,6 +109,7 @@ class TypeDefinition {
     ..sln('const $entryName(this.\$inner);');
 
   void _build$dgoGoSize() => ctx
+    ..sln('@\$core.override')
     ..if_(
       ir.isGoNotDynamic,
       () => ctx
@@ -136,7 +137,7 @@ class TypeDefinition {
     ..sln('}');
 
   void _build$dgoStore() => ctx
-    ..sln()
+    ..sln('@\$core.override')
     ..sln('\$core.int '
         '\$dgoStore(\$core.List<\$core.dynamic> $vArgs, \$core.int $vIndex) {')
     ..sln('final $vHolder = this;')

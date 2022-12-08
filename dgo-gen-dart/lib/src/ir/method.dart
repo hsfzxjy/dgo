@@ -83,7 +83,7 @@ class Method {
         .followedBy(['{\$core.Duration? \$timeout,DgoPort? \$port}']).joinComma;
     ctx
       ..sln('Future<${returnType.dartType}> $funcName($paramSig) async {')
-      ..sln('\$port ??= dgo.defaultPort;')
+      ..sln('\$port ??= \$dgo.dgo.defaultPort;')
       ..then(_buildSize)
       ..sln('final $vArgs = \$core.List<\$core.dynamic>'
           '.filled($vSize, null, growable: false);')
@@ -97,7 +97,7 @@ class Method {
             ..then(param.term.writeSnippet$dgoStore)
             ..sln('}'))
       ..sln(
-        'final \$future = GoMethod($funcId, \$port)'
+        'final \$future = \$dgo.GoMethod($funcId, \$port)'
         '.${returnType == null ? "call" : "callWithResult"}'
         '($vArgs, timeout: \$timeout, hasError: $returnError);',
       )

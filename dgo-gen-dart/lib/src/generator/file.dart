@@ -9,9 +9,9 @@ class File extends StringBuffer {
   File(this.uri)
       : importer = Importer(uri),
         super() {
-    importer.import3Party('package:meta/meta.dart');
-    importer.import3Party('package:dgo/dgo.dart');
-    importer.import3Party('dart:async');
+    importer.import3Party('package:meta/meta.dart', alias: '\$meta');
+    importer.import3Party('package:dgo/dgo.dart', alias: '\$dgo');
+    importer.import3Party('dart:async', alias: '\$async');
     importer.import3Party('dart:core', alias: '\$core');
   }
 
