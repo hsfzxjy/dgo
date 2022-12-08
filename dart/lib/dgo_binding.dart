@@ -35,6 +35,23 @@ class LibDgo {
               ffi.Pointer<ffi.Void>, Dart_Port_DL, ffi.Bool)>>('dgo_InitPort');
   late final _dgo_InitPort = _dgo_InitPortPtr
       .asFunction<void Function(ffi.Pointer<ffi.Void>, int, bool)>();
+
+  void dgo_DisposeToken(
+    int version,
+    int data,
+  ) {
+    return _dgo_DisposeToken(
+      version,
+      data,
+    );
+  }
+
+  late final _dgo_DisposeTokenPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Uint16, uintptr_t)>>(
+          'dgo_DisposeToken');
+  late final _dgo_DisposeToken =
+      _dgo_DisposeTokenPtr.asFunction<void Function(int, int)>();
 }
 
 typedef Dart_Port_DL = ffi.Int64;
+typedef uintptr_t = ffi.UnsignedLong;
