@@ -10,12 +10,20 @@ import (
 	"github.com/hsfzxjy/dgo/dgo-gen/internal/uri"
 )
 
+type TypeSolveConfig struct {
+	IsPinnable bool
+}
+
 func (ctx *Context) SolveType(obj types.Object) ir.Term {
-	solver := NewTypeSolver(ctx)
+	return ctx.SolveTypeEx(obj, TypeSolveConfig{}).Result
+}
+
+func (ctx *Context) SolveTypeEx(obj types.Object, config TypeSolveConfig) *typeSolver {
+	solver := &typeSolver{Context: ctx, config: config}
 	solver.Do(obj, nil)
 	term := solver.Result
 	ir.FillAllSize(term)
-	return term
+	return solver
 }
 
 type termLayerKind int
@@ -38,13 +46,10 @@ type termLayer struct {
 
 type typeSolver struct {
 	*Context
+	config  TypeSolveConfig
 	layers  []termLayer
 	visited map[uri.Uri]struct{}
 	Result  ir.Term
-}
-
-func NewTypeSolver(context *Context) *typeSolver {
-	return &typeSolver{Context: context}
 }
 
 func (r *typeSolver) Do(obj types.Object, ityp types.Type) {
