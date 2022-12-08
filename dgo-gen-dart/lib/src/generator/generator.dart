@@ -38,11 +38,52 @@ class Generator {
     await directory.create(recursive: true);
   }
 
+  void _saveRegistrar() {
+    final file = fileSet[GoModUri.empty.dartFile('registrar.dart')];
+
+    setFile(file, {});
+
+    final typeNames =
+        definitions.keys.map(EntryUri.fromString).map(ctx.importer.qualifyUri);
+
+    ctx
+      ..sln('\$dgo.DgoObject _buildObjectById(')
+      ..sln('\$core.int typeId, \$core.Iterator args) {')
+      ..sln('switch (typeId) {')
+      ..for_(
+        typeNames,
+        (typeName) => ctx
+          ..sln('case $typeName.typeId:')
+          ..sln('return $typeName.\$dgoLoad(args);'),
+      )
+      ..sln('default:')
+      ..sln("throw 'dgo:dart: cannot build object for typeId=\$typeId'; } }");
+
+    ctx
+      ..sln('T _buildObject<T extends \$dgo.DgoObject>(')
+      ..sln('\$core.Iterator args) {')
+      ..sln('switch (T) {')
+      ..for_(
+        typeNames,
+        (typeName) => ctx
+          ..sln('case $typeName:')
+          ..sln('return $typeName.\$dgoLoad(args) as T;'),
+      )
+      ..sln('default:')
+      ..sln("throw 'dgo:dart: cannot build object for type=\$T'; } }");
+
+    ctx
+      ..sln('void registerDgoRelated() {')
+      ..sln('\$dgo.registerTypes(')
+      ..sln('_buildObjectById, _buildObject); }');
+  }
+
   Future<void> save() async {
     await _prepareDirectory();
     for (final definition in definitions.values) {
       TypeDefinition(fileSet, definition).save();
     }
+    _saveRegistrar();
     await fileSet.save();
   }
 }
