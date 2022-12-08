@@ -17,6 +17,7 @@ class TypeDefinition {
   final Namable ir;
 
   final bool isEnum;
+  final bool isPinnable;
 
   EntryUri get myUri => ir.myUri!;
   File get file => fileset[myUri.goMod.dartModFile];
@@ -36,7 +37,8 @@ class TypeDefinition {
   TypeDefinition(this.fileset, this.data)
       : ir = IR.fromJSON(data['Term']) as Namable,
         typeId = data['TypeId'],
-        isEnum = data['IsEnum'] {
+        isEnum = data['IsEnum'],
+        isPinnable = data['IsPinnable'] {
     assert(ir.isNamed);
   }
 
@@ -70,11 +72,17 @@ class TypeDefinition {
         () => ctx
           ..sln()
           ..sln('typedef $renameTo = $entryName;'),
+      )
+      ..if_(
+        isPinnable,
+        () => ctx
+          ..sln()
+          ..then(_buildPinTokenExtension),
       );
   }
 
   void _buildHeaderEnum() => ctx
-    ..sln('enum $entryName {')
+    ..sln('enum $entryName implements \$dgo.DgoObject {')
     ..sln(enumMembers.map((m) => '${m.name}(${m.value})').joinComma)
     ..sln(';')
     ..sln('factory $entryName.of(\$core.int value) {')
@@ -93,7 +101,11 @@ class TypeDefinition {
 
   void _buildHeaderClass() => ctx
     ..sln('@\$meta.immutable')
-    ..sln('class $entryName {');
+    ..if_(
+      isPinnable,
+      () => ctx.sln('class $entryName extends \$dgo.Pinnable {'),
+      else_: () => ctx..sln('class $entryName extends \$dgo.DgoObject {'),
+    );
 
   void _buildConstructorStruct() => ctx
     ..for_(
@@ -144,4 +156,26 @@ class TypeDefinition {
     ..then(ir.writeSnippet$dgoStore)
     ..sln('return $vIndex;')
     ..sln('}');
+
+  void _buildPinTokenExtension() {
+    final ir = this.ir as OpStruct;
+    ctx
+      ..sln('extension $entryName\$PinTokenExt on \$dgo.PinToken<$entryName> {')
+      ..for_(
+        ir.fields.values,
+        (field) => ctx
+          ..sln('${field.dartType} get ${field.name} =>')
+          ..sln(' \$dgo.checkTokenValidity(this, \$data.${field.name});')
+          ..sln(),
+      )
+      ..for_(
+        methods,
+        (method) => ctx
+          ..sln(method.signature('Function'))
+          ..sln('get ${method.funcName} =>')
+          ..sln('\$dgo.checkTokenValidity(this, \$data.${method.funcName});')
+          ..sln(),
+      )
+      ..sln('}');
+  }
 }

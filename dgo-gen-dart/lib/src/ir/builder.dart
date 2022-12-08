@@ -10,6 +10,7 @@ final _irBuilders = [
   OpOptional,
   OpSlice,
   OpMap,
+  OpPinToken,
 ].map((type) {
   final mirror = reflectClass(type);
   final className = type.toString();

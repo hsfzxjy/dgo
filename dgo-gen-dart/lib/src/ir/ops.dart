@@ -446,3 +446,28 @@ class OpOptional extends IR {
       ..sln('}');
   }
 }
+
+@immutable
+class OpPinToken extends IR {
+  final OpCoerce term;
+
+  OpPinToken.fromMap(JsonMap m)
+      : term = m.getIR('Term') as OpCoerce,
+        super(m);
+
+  @override
+  void _writeSnippet$dgoGoSize() {}
+
+  @override
+  String get dartType => '\$dgo.PinToken<${term.dartType}>';
+
+  @override
+  void writeSnippet$dgoLoad() {
+    ctx.sln('$vHolder = \$dgo.PinToken.\$dgoLoad<${term.dartType}>($vArgs);');
+  }
+
+  @override
+  void writeSnippet$dgoStore() {
+    ctx.sln('$vIndex = $vHolder.\$dgoStore($vArgs, $vIndex);');
+  }
+}
