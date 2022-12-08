@@ -122,6 +122,7 @@ class TypeDefinition {
 
   void _build$dgoGoSize() => ctx
     ..sln('@\$core.override')
+    ..sln('@\$meta.protected')
     ..if_(
       ir.isGoNotDynamic,
       () => ctx
@@ -136,7 +137,7 @@ class TypeDefinition {
     );
 
   void _build$dgoLoad() => ctx
-    ..sln()
+    ..sln('@\$meta.protected')
     ..sln('static ${ir.outerDartType} '
         '\$dgoLoad(\$core.Iterator<\$core.dynamic> $vArgs) {')
     ..sln('${ir.dartType} $vHolder;')
@@ -150,6 +151,7 @@ class TypeDefinition {
 
   void _build$dgoStore() => ctx
     ..sln('@\$core.override')
+    ..sln('@\$meta.protected')
     ..sln('\$core.int '
         '\$dgoStore(\$core.List<\$core.dynamic> $vArgs, \$core.int $vIndex) {')
     ..sln('final $vHolder = this;')
