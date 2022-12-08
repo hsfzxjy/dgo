@@ -22,6 +22,7 @@ part 'special_int.dart';
 part 'invoke_context.dart';
 part 'utils.dart';
 part 'math_utils.dart';
+part 'pin.dart';
 
 class _Dgo extends DgoPortLike with _PortMixin {
   DgoPort? _defaultPort;
