@@ -69,7 +69,7 @@ func incIndex() *Statement {
 	return Id("_index_").Op("++")
 }
 
-func arrIndex() Code {
+func arrIndex() *Statement {
 	return Id("arr").Index(Id("_index_"))
 }
 
