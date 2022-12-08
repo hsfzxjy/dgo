@@ -108,7 +108,7 @@ SWITCH:
 		ityp = typ.Elem()
 		goto SWITCH
 	case *types.Named:
-		if isOptional(typ.Obj()) {
+		if isOptional(typ) {
 			ityp = ityp.Underlying().(*types.Struct).Field(0).Type()
 			r.push(tlkField, ityp, ir.NewOptional()).fieldName = "Value"
 			defer r.pop()
@@ -240,8 +240,24 @@ func (r *typeSolver) isTypeNamed() bool {
 	return false
 }
 
-func isOptional(obj types.Object) bool {
-	return obj.Pkg() != nil &&
-		obj.Pkg().Path() == "github.com/hsfzxjy/dgo/go" &&
-		obj.Name() == "Optional"
+func isDgoType(typ types.Type, subPath, name string) bool {
+	if named, ok := typ.(*types.Named); ok {
+		obj := named.Obj()
+		return obj.Pkg() != nil &&
+			obj.Pkg().Path() == "github.com/hsfzxjy/dgo/go"+subPath &&
+			obj.Name() == name
+	}
+	return false
+}
+
+func isPinMeta(typ types.Type) bool {
+	return isDgoType(typ, "", "PinMeta")
+}
+
+func isOptional(typ types.Type) bool {
+	return isDgoType(typ, "", "Optional")
+}
+
+func isPinToken(typ types.Type) bool {
+	return isDgoType(typ, "", "PinToken")
 }
