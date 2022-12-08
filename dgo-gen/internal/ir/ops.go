@@ -166,35 +166,42 @@ func (p *PtrTo) Traverse(visitPre, visitPost visitor) {
 	visitPost(p)
 }
 
-type Field struct {
-	termHeader
-	Name string
-	Term Term
-
+type FieldDirectives struct {
 	SendToDart   bool
 	SendBackToGo bool
 	RenameInDart string
 }
 
-func NewField(name string, spec string) (*Field, error) {
-	t := &Field{Name: name, SendToDart: true, SendBackToGo: true}
-
+func ParseFieldDirectives(spec string) *FieldDirectives {
+	d := &FieldDirectives{SendToDart: true, SendBackToGo: true}
 	directives := utils.ParseDirectives(spec)
 	if len(directives) > 0 {
-		t.RenameInDart = directives[0]
+		d.RenameInDart = directives[0]
 		for _, directive := range directives[1:] {
 			switch directive {
 			case "!dart":
-				t.SendToDart = false
-				t.SendBackToGo = false
+				d.SendToDart = false
+				d.SendBackToGo = false
 			case "!go":
-				t.SendBackToGo = false
+				d.SendBackToGo = false
 			}
 		}
 	}
+	return d
+}
 
+type Field struct {
+	termHeader
+	Name string
+	Term Term
+
+	*FieldDirectives
+}
+
+func NewField(name string, directives *FieldDirectives) *Field {
+	t := &Field{Name: name, FieldDirectives: directives}
 	t.initHeader("Field")
-	return t, nil
+	return t
 }
 
 func (f *Field) DartName() string {

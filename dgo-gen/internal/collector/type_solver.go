@@ -132,18 +132,16 @@ SWITCH:
 		for i := 0; i < typ.NumFields(); i++ {
 			field := typ.Field(i)
 
-			var irField *ir.Field
+			var directives *ir.FieldDirectives
 			{
-				var err error
 				tag := reflect.StructTag(typ.Tag(i))
 				spec, _ := tag.Lookup("dgo")
-				irField, err = ir.NewField(field.Name(), spec)
-				if irStruct.IsFieldNameConflicted(irField.DartName()) {
-					r.throwAt(field, "conflicted field name: %s", irField.DartName())
-				}
-				if err != nil {
-					r.throwAt(field, "bad spec `dgo`: %s", err)
-				}
+				directives = ir.ParseFieldDirectives(spec)
+			}
+
+			irField := ir.NewField(field.Name(), directives)
+			if irStruct.IsFieldNameConflicted(irField.DartName()) {
+				r.throwAt(field, "conflicted field name: %s", irField.DartName())
 			}
 
 			r.push(tlkField, field.Type(), irField).
