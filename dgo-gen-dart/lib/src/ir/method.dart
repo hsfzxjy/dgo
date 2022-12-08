@@ -77,12 +77,17 @@ class Method {
       ..sln();
   }
 
+  String signature(String funcName) {
+    var paramSig =
+        params.map((p) => '${p.term.outerDartType} ${p.name}').followedBy([
+      '{\$core.Duration? \$timeout, \$dgo.DgoPort? \$port}',
+    ]).joinComma;
+    return '\$async.Future<${returnType.dartType}> $funcName($paramSig)';
+  }
+
   void writeSnippet() {
-    var paramSig = params
-        .map((p) => '${p.term.outerDartType} ${p.name}')
-        .followedBy(['{\$core.Duration? \$timeout,DgoPort? \$port}']).joinComma;
     ctx
-      ..sln('Future<${returnType.dartType}> $funcName($paramSig) async {')
+      ..sln('${signature(funcName)} async {')
       ..sln('\$port ??= \$dgo.dgo.defaultPort;')
       ..then(_buildSize)
       ..sln('final $vArgs = \$core.List<\$core.dynamic>'
