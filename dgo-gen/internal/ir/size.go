@@ -52,6 +52,13 @@ func fillSize(t Term, getSize func(Term) *int, skip func(Term) bool) {
 			}
 		case *Slice, *Map:
 			*top() = isdynamic(true)
+		case *PinToken:
+			switch baseSize {
+			case &t.getHeader().DartSize:
+				cntSize += 2
+			case &t.getHeader().GoSize:
+				cntSize = *baseSize + 2
+			}
 		}
 		*baseSize = cntSize - *baseSize
 	})

@@ -115,6 +115,13 @@ SWITCH:
 
 			goto SWITCH
 		}
+		if isPinToken(typ) {
+			ityp = typ.TypeArgs().At(0)
+			r.push(tlkField, ityp, ir.NewPinToken()).fieldName = "Underlying"
+			defer r.pop()
+
+			goto SWITCH
+		}
 		if !r.HasTypeName(typ.Obj()) {
 			r.throwAt(obj, "type not marked as exported: %s", typ)
 		}
@@ -129,8 +136,29 @@ SWITCH:
 		irStruct := ir.NewStruct()
 		r.push(tlkOther, typ, irStruct)
 		defer r.pop()
-		for i := 0; i < typ.NumFields(); i++ {
+
+		var i = 0
+		if r.config.IsPinnable && r.isRootLevelStruct() {
+			if typ.NumFields() == 0 {
+				goto BAD_PINNABLE
+			}
+			i = 1
+			field := typ.Field(0)
+			if !isPinMeta(field.Type()) || !field.Embedded() {
+				goto BAD_PINNABLE
+			}
+		}
+		goto NEXT_FIELD
+	BAD_PINNABLE:
+		r.throwAt(obj, "pinnable struct should have an embedded dgo.PinMeta as the first field")
+
+	NEXT_FIELD:
+		for ; i < typ.NumFields(); i++ {
 			field := typ.Field(i)
+
+			if i == 0 && isPinMeta(field.Type()) {
+				continue NEXT_FIELD
+			}
 
 			var directives *ir.FieldDirectives
 			{
@@ -227,6 +255,21 @@ func (r *typeSolver) pop() {
 	if length == 1 {
 		r.Result = lasttermLayer.term
 	}
+}
+
+func (r *typeSolver) isRootLevelStruct() bool {
+	var n = len(r.layers) - 1
+	var lterm ir.Term = r.layers[n].term
+	if _, ok := lterm.(*ir.Struct); !ok {
+		return false
+	}
+	for i := n - 1; i >= 0; i-- {
+		term := r.layers[i].term
+		if _, ok := term.(*ir.Struct); ok && term != lterm {
+			return false
+		}
+	}
+	return true
 }
 
 func (r *typeSolver) isTypeNamed() bool {

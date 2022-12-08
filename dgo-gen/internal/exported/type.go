@@ -30,6 +30,8 @@ type Type struct {
 
 	name2EnumMember  map[string]*EnumMember `json:"-"`
 	value2EnumMember map[string]*EnumMember `json:"-"`
+
+	IsPinnable bool
 }
 
 func (t *Type) parseDirectives(directives []string) {
@@ -38,8 +40,11 @@ func (t *Type) parseDirectives(directives []string) {
 	}
 	t.Rename = directives[0]
 	for _, directive := range directives[1:] {
-		if directive == "enum" {
+		switch directive {
+		case "enum":
 			t.IsEnum = true
+		case "pinnable":
+			t.IsPinnable = true
 		}
 	}
 }
@@ -70,5 +75,6 @@ func (t *Type) Uri() uri.Uri {
 }
 
 func (t *Type) Resolve() {
-	t.Term = t.SolveType(t)
+	solver := t.SolveTypeEx(t, collector.TypeSolveConfig{IsPinnable: t.IsPinnable})
+	t.Term = solver.Result
 }

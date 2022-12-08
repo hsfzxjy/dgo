@@ -266,3 +266,21 @@ func (o *Optional) Traverse(visitPre, visitPost visitor) {
 	o.Term.Traverse(visitPre, visitPost)
 	visitPost.Call(o)
 }
+
+type PinToken struct {
+	termHeader
+	Term Term
+}
+
+func NewPinToken() *PinToken {
+	t := &PinToken{}
+	t.initHeader("PinToken")
+	return t
+}
+
+func (x *PinToken) AddChild(t Term) { x.Term = t }
+func (x *PinToken) Traverse(visitPre, visitPost visitor) {
+	visitPre.Call(x)
+	x.Term.Traverse(visitPre, visitPost)
+	visitPost.Call(x)
+}
