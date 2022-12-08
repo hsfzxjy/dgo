@@ -6,11 +6,13 @@ import 'package:dgo/dgo.dart';
 import 'package:test/test.dart';
 
 // Project imports:
+import 'package:test_gen_dart/generated/registrar.dart';
 import 'package:test_gen_dart/generated/test_gen_go/module.dart';
 
 final dlib = DynamicLibrary.open('../_build/libtest_gen.so');
 
 void main() async {
+  registerDgoRelated();
   await dgo.initDefaultPort(dlib);
 
   group('Tester', () {
@@ -65,6 +67,23 @@ void main() async {
     test('ReturnsSelf', () async {
       final result = await TesterWithField(42).ReturnsSelf();
       expect(result.field, 42);
+    });
+  });
+
+  group('PinTester', () {
+    test('PinAndThenDispose', () async {
+      final p = await PinTester().MakeAndReturnsPeripheral();
+      expect(p.id, 42);
+      expect(p.name, 'MyDevice');
+      final result = await PinTester().AcceptPeripheralAndCompute(p);
+      expect(result, 'Peripheral<id=42, name=MyDevice>');
+      p.dispose();
+      expect(
+        p.dispose,
+        throwsA(matches(RegExp(r'^dgo:dart:.*only once$'))),
+      );
+      await PinTester().GC();
+      await PinTester().AssertTokenInvalid(p);
     });
   });
 }

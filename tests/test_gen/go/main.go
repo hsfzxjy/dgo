@@ -2,8 +2,12 @@ package main
 
 import (
 	"errors"
+	"fmt"
+	"regexp"
+	"runtime"
 	"strconv"
 
+	dgo "github.com/hsfzxjy/dgo/go"
 	"github.com/hsfzxjy/dgo/tests/test_gen/go/internal/subpack"
 )
 
@@ -68,6 +72,68 @@ type TesterWithField struct {
 //dgo:export
 func (t TesterWithField) ReturnsSelf() TesterWithField {
 	return t
+}
+
+//dgo:export ,pinnable
+type Peripheral struct {
+	dgo.PinMeta
+	id   int64
+	name string
+}
+
+//dgo:export
+type PinTester struct{}
+
+//dgo:export
+func (PinTester) MakeAndReturnsPeripheral() dgo.PinToken[Peripheral] {
+	// we allocate a large array to ensure the garbadge collector will actively
+	// recycle it when runtime.GC() called
+	peripherals := new([100_0000]Peripheral)
+	p := &peripherals[0]
+	p.id = 42
+	p.name = "MyDevice"
+	p.Pin()
+	t := p.NewToken()
+	if !t.Dispose() || t.Dispose() {
+		panic("expect 1-st Dispose() returns true, and the 2-nd returns false")
+	}
+	t = p.NewToken()
+	return t
+}
+
+//dgo:export
+func (PinTester) AcceptPeripheralAndCompute(pt dgo.PinToken[Peripheral]) string {
+	p := pt.Data()
+	p.Unpin()
+	return fmt.Sprintf("Peripheral<id=%d, name=%s>", p.id, p.name)
+}
+
+//dgo:export
+func (PinTester) GC() {
+	runtime.GC()
+}
+
+//dgo:export
+func (PinTester) AssertTokenInvalid(t dgo.PinToken[Peripheral]) {
+	if !t.IsEmpty() {
+		panic("expect the token to be invalid")
+	}
+	assertPanic(func() { t.Data() }, regexp.MustCompile(`^dgo:go:.*empty Token$`))
+}
+
+func assertPanic(f func(), errPattern *regexp.Regexp) {
+	defer func() {
+		p, ok := recover().(string)
+		if !ok {
+			panic("panic payload is not string")
+		}
+		if !errPattern.MatchString(p) {
+			panic(fmt.Sprintf(
+				"panic payload does not match the desired pattern"+":\n payload=%q\n pattern=%q",
+				p, errPattern))
+		}
+	}()
+	f()
 }
 
 func main() {}
