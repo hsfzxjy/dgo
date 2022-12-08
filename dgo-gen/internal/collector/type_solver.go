@@ -139,6 +139,11 @@ SWITCH:
 				directives = ir.ParseFieldDirectives(spec)
 			}
 
+			switch {
+			case !directives.SendToDart:
+				continue NEXT_FIELD
+			}
+
 			irField := ir.NewField(field.Name(), directives)
 			if irStruct.IsFieldNameConflicted(irField.DartName()) {
 				r.throwAt(field, "conflicted field name: %s", irField.DartName())
