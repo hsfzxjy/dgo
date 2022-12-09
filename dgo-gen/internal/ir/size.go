@@ -55,9 +55,9 @@ func fillSize(t Term, getSize func(Term) *int, skip func(Term) bool) {
 		case *PinToken:
 			switch baseSize {
 			case &t.getHeader().DartSize:
-				cntSize += 2
+				cntSize += 3
 			case &t.getHeader().GoSize:
-				cntSize = *baseSize + 2
+				cntSize = *baseSize + 3
 			}
 		}
 		*baseSize = cntSize - *baseSize

@@ -279,14 +279,16 @@ func buildFunction_DgoLoad(etype *exported.Type, term ir.Term, g *Group, looper 
 	case *ir.PinToken:
 		g.BlockFunc(func(g *Group) {
 			g.Var().Id("version").Uint16()
+			g.Var().Id("lid").Uint16()
 			g.Var().Id("data").Uintptr()
 			loadIntoInt(g, arrIndex(), Id("version"), Uint16())
+			loadIntoInt(g, arrIndex(), Id("lid"), Uint16())
 			loadIntoInt(g, arrIndex(), Id("data"), Uintptr())
 			g.Op("*o").Op("=").
 				Add(Parens(typeNameOf(etype, t))).
 				Parens(
 					Id("pin_untypedTokenFromRaw").
-						Call(Id("version"), Id("data")),
+						Call(Id("version"), Id("lid"), Id("data")),
 				)
 		})
 	}
@@ -455,10 +457,11 @@ func buildFunction_DgoStore(etype *exported.Type, term ir.Term, g *Group, looper
 			})
 	case *ir.PinToken:
 		g.BlockFunc(func(g *Group) {
-			g.List(Id("version"), Id("data")).Op(":=").
+			g.List(Id("version"), Id("lid"), Id("data")).Op(":=").
 				Id("pin_untypedTokenExtract").
 				Call(untypedPinToken().Call(Op("*o")))
 			storeFromInt(g, Id("version"))
+			storeFromInt(g, Id("lid"))
 			storeFromInt(g, Id("data"))
 			g.Id("o").Op(":=").Id("o").Dot("Data").Call()
 			buildFunction_DgoStore(etype, t.Term, g, looper)
@@ -802,7 +805,7 @@ func (d *Generator) buildStub(dstDir string, pkgName string) {
 		Comment("//go:linkname pin_untypedTokenFromRaw github.com/hsfzxjy/dgo/go/pin.untypedTokenFromRaw").
 		Line().
 		Func().Id("pin_untypedTokenFromRaw").
-		Params(Id("version").Uint16(), Id("data").Uintptr()).
+		Params(Id("version").Uint16(), Id("lid").Uint16(), Id("data").Uintptr()).
 		Id("pin_untypedToken").
 		Line().
 		Line().
@@ -816,7 +819,7 @@ func (d *Generator) buildStub(dstDir string, pkgName string) {
 		Line().
 		Func().Id("pin_untypedTokenExtract").
 		Params(Id("token").Add(untypedPinToken())).
-		Parens(List(Id("version").Uint16(), Id("data").Uintptr())).
+		Parens(List(Id("version").Uint16(), Id("lid").Uint16(), Id("data").Uintptr())).
 		Line()
 }
 
