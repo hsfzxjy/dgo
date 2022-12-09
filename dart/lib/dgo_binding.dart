@@ -38,19 +38,22 @@ class LibDgo {
 
   void dgo_DisposeToken(
     int version,
+    int lid,
     int data,
   ) {
     return _dgo_DisposeToken(
       version,
+      lid,
       data,
     );
   }
 
-  late final _dgo_DisposeTokenPtr =
-      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Uint16, uintptr_t)>>(
-          'dgo_DisposeToken');
+  late final _dgo_DisposeTokenPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(
+              ffi.Uint16, ffi.Uint16, uintptr_t)>>('dgo_DisposeToken');
   late final _dgo_DisposeToken =
-      _dgo_DisposeTokenPtr.asFunction<void Function(int, int)>();
+      _dgo_DisposeTokenPtr.asFunction<void Function(int, int, int)>();
 }
 
 typedef Dart_Port_DL = ffi.Int64;
