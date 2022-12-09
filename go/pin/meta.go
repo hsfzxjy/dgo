@@ -119,6 +119,7 @@ LOAD_FLAG:
 //lint:ignore U1000 go:linkname
 func metaNewToken(m *Meta) untypedToken {
 	var lid uint16
+	var version uint16
 LOAD_FLAG:
 	flag := m.flag.Load()
 	switch flag {
@@ -140,8 +141,9 @@ LOAD_FLAG:
 			panic("dgo:go: too many allocated lids")
 		}
 		m.lidcnt++
+		version = m.version
 		m.flag.Store(flag)
 		runtime_procUnpin()
 	}
-	return newToken(m, lid)
+	return newToken(m, version, lid)
 }

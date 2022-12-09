@@ -21,12 +21,12 @@ type Token[T any] struct {
 
 var rawTokenPool sync.Pool
 
-func newToken(meta *Meta, lid uint16) untypedToken {
+func newToken(meta *Meta, version uint16, lid uint16) untypedToken {
 	rt, ok := rawTokenPool.Get().(*rawToken)
 	if !ok {
 		rt = new(rawToken)
 	}
-	rt.version = meta.version
+	rt.version = version
 	rt.meta = meta
 	rt.lid = lid
 	return Token[struct{}]{rawToken: rt}
@@ -73,9 +73,7 @@ LOAD_FLAG:
 		}
 		if meta.version == version &&
 			meta.lids.Test(uint(lid)) {
-			ret = newToken(meta, lid)
-			ret.version = version
-			ret.lid = lid
+			ret = newToken(meta, version, lid)
 		}
 		// else: the version is mismatched or lid is invalid, we return an empty token
 		meta.flag.Store(flag)
