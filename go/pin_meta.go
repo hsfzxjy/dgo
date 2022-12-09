@@ -12,13 +12,13 @@ const (
 )
 
 type PinMeta struct {
+	_       noCopy
+	flag    atomic.Uint32
 	refcnt  uint32
 	version uint16
 	intable bool
 	_pad    [1]byte
-	flag    atomic.Uint32
 	Extra   any
-	_       noCopy
 }
 
 func (m *PinMeta) Pin() (success bool) {
