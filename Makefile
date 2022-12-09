@@ -7,16 +7,35 @@ export C_INCLUDE_PATH=$(DART_SDK_INCLUDE_DIR):$(abspath ./go/)
 
 DART_SDK_INCLUDE_DIR = $(shell bash -c 'dirname `which flutter`')/cache/dart-sdk/include/
 
-GOSRC = $(abspath $(shell grep -Ril go/*.go -e 'import "C"'))
+ALL_GOSRC = $(shell bash -O globstar -c 'echo go/**/*.go')
+GOSRC = $(shell grep -Ril $(ALL_GOSRC) -e 'import "C"')
+
+ALL_HSRC = $(shell bash -O globstar -c 'echo go/**/*.h')
 
 BUILD_DIR = $(abspath ./build)
 WORK_DIR = $(abspath .)
 
-build/include/go.h: $(GOSRC)
+build/include/go.h: $(GOSRC) $(ALL_HSRC)
 	rm build -rf
 	mkdir build/include/ -p
+	entry_hfile=$(BUILD_DIR)/include/go.h
 	cd go
-	go tool cgo -exportheader $(BUILD_DIR)/include/go.h $(GOSRC)
+	for file in $(GOSRC); do
+		file=$${file#"go/"}
+		hfile=$${file}.h
+		hpath=$(BUILD_DIR)/include/$${hfile}
+		mkdir -p $$(dirname $${hpath})
+		go tool cgo -exportheader $${hpath} $${file}
+		echo '#include "'$${hfile}'"' >> $${entry_hfile}
+	done
+
+	for file in $(ALL_HSRC); do
+		file=$${file#"go/"}
+		dest=$(BUILD_DIR)/include/$${file}
+		mkdir -p $$(dirname $${dest})
+		cp $${file} $${dest}
+	done
+
 
 .PHONY: go-headers
 go-headers: build/include/go.h

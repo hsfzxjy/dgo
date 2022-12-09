@@ -26,10 +26,8 @@ ffigen:
   headers:
     entry-points:
       - ../build/include/go.h
-      - ../go/ffi.h
     include-directives:
-      - ../build/include/go.h
-      - ../go/ffi.h
+      - ../build/include/**.h
   functions:
     exclude:
       - "_.*"
