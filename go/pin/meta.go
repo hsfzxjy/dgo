@@ -107,7 +107,7 @@ LOAD_FLAG:
 }
 
 //lint:ignore U1000 go:linkname
-func pinMetaNewToken(m *Meta) untypedToken {
+func metaNewToken(m *Meta) untypedToken {
 LOAD_FLAG:
 	flag := m.flag.Load()
 	switch flag {
