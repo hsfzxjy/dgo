@@ -10,13 +10,16 @@ import (
 const (
 	detached uint32 = iota
 	accessing
-	attached
+	attached_not_intable
+
+	intable uint32 = 0x1000_0000
+
+	attached_intable = intable | attached_not_intable
 )
 
 type Meta struct {
 	_       noCopy
 	flag    atomic.Uint32
-	intable bool
 	version uint16
 	lidcnt  uint16
 	lids    *bitset.BitSet
@@ -36,14 +39,16 @@ LOAD_FLAG:
 			goto LOAD_FLAG
 		}
 		m.version = uint16(pinTable.nextVersion.Add(1))
-		m.intable = true
 		m.lidcnt = 0
 		m.lids = bitsetGet()
 		pinTable.m.Store(uintptr(m.key()), m)
-		m.flag.Store(attached)
+		m.flag.Store(attached_intable)
 		runtime_procUnpin()
 		return true
-	case attached:
+	case attached_not_intable:
+		if !m.flag.CompareAndSwap(flag, attached_intable) {
+			goto LOAD_FLAG
+		}
 	}
 	return false
 }
@@ -55,20 +60,19 @@ LOAD_FLAG:
 	case accessing:
 		goto LOAD_FLAG
 	case detached:
-	case attached:
+	case attached_not_intable, attached_intable:
 		runtime_procPin()
 		if !m.flag.CompareAndSwap(flag, accessing) {
 			runtime_procUnpin()
 			goto LOAD_FLAG
 		}
-		m.intable = false
 		if m.lidcnt == 0 {
 			bitsetRecycle(m.lids)
 			m.lids = nil
 			pinTable.m.Delete(m.key())
 			m.flag.Store(detached)
 		} else {
-			m.flag.Store(attached)
+			m.flag.Store(attached_not_intable)
 		}
 		runtime_procUnpin()
 		return true
@@ -86,7 +90,7 @@ LOAD_FLAG:
 		goto LOAD_FLAG
 	case detached:
 		return
-	case attached:
+	case attached_not_intable, attached_intable:
 		runtime_procPin()
 		if !m.flag.CompareAndSwap(flag, accessing) {
 			runtime_procUnpin()
@@ -100,13 +104,13 @@ LOAD_FLAG:
 		}
 		m.lids.Clear(uint(lid))
 		m.lidcnt--
-		if m.lidcnt == 0 && !m.intable {
+		if m.lidcnt == 0 && flag&intable == 0 {
 			bitsetRecycle(m.lids)
 			m.lids = nil
 			pinTable.m.Delete(uintptr(m.key()))
 			m.flag.Store(detached)
 		} else {
-			m.flag.Store(attached)
+			m.flag.Store(flag)
 		}
 		runtime_procUnpin()
 	}
@@ -122,7 +126,7 @@ LOAD_FLAG:
 		goto LOAD_FLAG
 	case detached:
 		panic("dgo:go: cannot call NewToken() on an unpinned object")
-	case attached:
+	case attached_intable, attached_not_intable:
 		runtime_procPin()
 		if !m.flag.CompareAndSwap(flag, accessing) {
 			runtime_procUnpin()
@@ -136,7 +140,7 @@ LOAD_FLAG:
 			panic("dgo:go: too many allocated lids")
 		}
 		m.lidcnt++
-		m.flag.Store(attached)
+		m.flag.Store(flag)
 		runtime_procUnpin()
 	}
 	return newToken[struct{}](m, lid)

@@ -65,13 +65,12 @@ LOAD_FLAG:
 	switch flag {
 	case accessing:
 		goto LOAD_FLAG
-	case attached:
+	case attached_not_intable, attached_intable:
 		runtime_procPin()
 		if !meta.flag.CompareAndSwap(flag, accessing) {
 			runtime_procUnpin()
 			goto LOAD_FLAG
 		}
-		defer meta.flag.Store(flag)
 		if meta.version == version &&
 			meta.lids.Test(uint(lid)) {
 			ret = newToken[struct{}](meta, lid)
@@ -79,6 +78,7 @@ LOAD_FLAG:
 			ret.lid = lid
 		}
 		// else: the version is mismatched or lid is invalid, we return an empty token
+		meta.flag.Store(flag)
 		runtime_procUnpin()
 		return
 	case detached:
