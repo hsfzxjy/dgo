@@ -81,7 +81,7 @@ func untypedPinToken() *Statement {
 }
 
 func pinToken(typeParam Code) *Statement {
-	return Qual(dgoMod, "PinToken").Index(typeParam)
+	return Qual(dgoMod+"/pin", "Token").Index(typeParam)
 }
 
 func loadIntoBasic(g *Group, src, srcType, dst, dstType Code) {
@@ -689,14 +689,14 @@ func (d *Generator) buildFunctionsForType(etype *exported.Type, file *File) {
 			Block(Empty().
 				If(Qual("unsafe", "Pointer").Call(Id("o")).
 					Op("!=").Qual("unsafe", "Pointer").
-					Call(Op("&").Id("o").Dot("PinMeta"))).
+					Call(Op("&").Id("o").Dot("Meta"))).
 				Block(
 					Panic(Lit("dgo:go: pinnable object must have an embedded"+
-						" dgo.PinMeta as the first field"))),
+						" pin.Meta as the first field"))),
 
 				Return(Parens(pinToken(typeName)).
 					Parens(Id("dgoPinMetaNewToken").Call(
-						Op("&").Id("o").Dot("PinMeta"))),
+						Op("&").Id("o").Dot("Meta"))),
 				))
 	}
 
@@ -792,27 +792,27 @@ func (d *Generator) buildStub(dstDir string, pkgName string) {
 		Type().Id("dgoUntypedPinToken").Op("=").Add(untypedPinToken()).
 		Line().
 		Line().
-		Comment("//go:linkname dgoPinMetaNewToken github.com/hsfzxjy/dgo/go.pinMetaNewToken").
+		Comment("//go:linkname dgoPinMetaNewToken github.com/hsfzxjy/dgo/go/pin.pinMetaNewToken").
 		Line().
 		Func().Id("dgoPinMetaNewToken").
-		Params(Id("meta").Op("*").Qual(dgoMod, "PinMeta")).
+		Params(Id("meta").Op("*").Qual(dgoMod+"/pin", "Meta")).
 		Add(untypedPinToken()).
 		Line().
 		Line().
-		Comment("//go:linkname dgoUntypedPinTokenFromRaw github.com/hsfzxjy/dgo/go.untypedTokenFromRaw").
+		Comment("//go:linkname dgoUntypedPinTokenFromRaw github.com/hsfzxjy/dgo/go/pin.untypedTokenFromRaw").
 		Line().
 		Func().Id("dgoUntypedPinTokenFromRaw").
 		Params(Id("version").Uint16(), Id("data").Uintptr()).
 		Id("dgoUntypedPinToken").
 		Line().
 		Line().
-		Comment("//go:linkname dgoUntypedPinTokenLeak github.com/hsfzxjy/dgo/go.untypedTokenLeak").
+		Comment("//go:linkname dgoUntypedPinTokenLeak github.com/hsfzxjy/dgo/go/pin.untypedTokenLeak").
 		Line().
 		Func().Id("dgoUntypedPinTokenLeak").
 		Params(Id("token").Id("dgoUntypedPinToken")).
 		Line().
 		Line().
-		Comment("//go:linkname dgoUntypedPinTokenExtract github.com/hsfzxjy/dgo/go.untypedTokenExtract").
+		Comment("//go:linkname dgoUntypedPinTokenExtract github.com/hsfzxjy/dgo/go/pin.untypedTokenExtract").
 		Line().
 		Func().Id("dgoUntypedPinTokenExtract").
 		Params(Id("token").Add(untypedPinToken())).

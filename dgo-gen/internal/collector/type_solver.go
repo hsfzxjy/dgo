@@ -150,7 +150,7 @@ SWITCH:
 		}
 		goto NEXT_FIELD
 	BAD_PINNABLE:
-		r.throwAt(obj, "pinnable struct should have an embedded dgo.PinMeta as the first field")
+		r.throwAt(obj, "pinnable struct should have an embedded pin.Meta as the first field")
 
 	NEXT_FIELD:
 		for ; i < typ.NumFields(); i++ {
@@ -297,7 +297,7 @@ func isDgoType(typ types.Type, subPath, name string) bool {
 }
 
 func isPinMeta(typ types.Type) bool {
-	return isDgoType(typ, "", "PinMeta")
+	return isDgoType(typ, "/pin", "Meta")
 }
 
 func isOptional(typ types.Type) bool {
@@ -305,5 +305,5 @@ func isOptional(typ types.Type) bool {
 }
 
 func isPinToken(typ types.Type) bool {
-	return isDgoType(typ, "", "PinToken")
+	return isDgoType(typ, "/pin", "Token")
 }
