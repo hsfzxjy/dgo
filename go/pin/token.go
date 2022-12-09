@@ -1,4 +1,4 @@
-package dgo
+package pin
 
 //#include <stdint.h>
 import "C"
@@ -10,10 +10,10 @@ import (
 type rawToken struct {
 	version uint16
 	_pad    [4]byte
-	meta    *PinMeta
+	meta    *Meta
 }
 
-type PinToken[T any] struct {
+type Token[T any] struct {
 	*rawToken
 	//lint:ingore U1000 unexportable marker
 	_ struct{}
@@ -21,18 +21,18 @@ type PinToken[T any] struct {
 
 var rawTokenPool sync.Pool
 
-func newToken[T any](meta *PinMeta) PinToken[T] {
+func newToken[T any](meta *Meta) Token[T] {
 	rt, ok := rawTokenPool.Get().(*rawToken)
 	if !ok {
 		rt = new(rawToken)
 	}
 	rt.version = meta.version
 	rt.meta = meta
-	return PinToken[T]{rawToken: rt}
+	return Token[T]{rawToken: rt}
 }
 
 // t should be dropped after Dispose() invoked
-func (t *PinToken[T]) Dispose() (success bool) {
+func (t *Token[T]) Dispose() (success bool) {
 	if t.IsEmpty() {
 		return false
 	}
@@ -41,16 +41,16 @@ func (t *PinToken[T]) Dispose() (success bool) {
 	return true
 }
 
-func (t PinToken[T]) Data() *T {
+func (t Token[T]) Data() *T {
 	if t.IsEmpty() {
 		panic("dgo:go: Data() called on an empty Token")
 	}
 	return (*T)(unsafe.Pointer(t.meta))
 }
 
-func (t *PinToken[T]) IsEmpty() bool { return t.rawToken == nil || t.rawToken.meta == nil }
+func (t *Token[T]) IsEmpty() bool { return t.rawToken == nil || t.rawToken.meta == nil }
 
-type untypedToken = PinToken[struct{}]
+type untypedToken = Token[struct{}]
 
 //lint:ignore U1000 go:linkname
 func untypedTokenFromRaw(version uint16, data uintptr) (ret untypedToken) {

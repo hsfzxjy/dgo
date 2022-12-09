@@ -1,4 +1,4 @@
-package dgo
+package pin
 
 type noCopy struct{}
 

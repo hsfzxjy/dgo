@@ -1,4 +1,4 @@
-package dgo
+package pin
 
 import (
 	"sync/atomic"
@@ -11,7 +11,7 @@ const (
 	attached
 )
 
-type PinMeta struct {
+type Meta struct {
 	_       noCopy
 	flag    atomic.Uint32
 	refcnt  uint32
@@ -21,7 +21,7 @@ type PinMeta struct {
 	Extra   any
 }
 
-func (m *PinMeta) Pin() (success bool) {
+func (m *Meta) Pin() (success bool) {
 LOAD_FLAG:
 	flag := m.flag.Load()
 	switch flag {
@@ -45,7 +45,7 @@ LOAD_FLAG:
 	return false
 }
 
-func (m *PinMeta) Unpin() (success bool) {
+func (m *Meta) Unpin() (success bool) {
 LOAD_FLAG:
 	flag := m.flag.Load()
 	switch flag {
@@ -71,9 +71,9 @@ LOAD_FLAG:
 	return false
 }
 
-func (m *PinMeta) key() uintptr { return uintptr(unsafe.Pointer(m)) }
+func (m *Meta) key() uintptr { return uintptr(unsafe.Pointer(m)) }
 
-func (m *PinMeta) decref(version uint16) {
+func (m *Meta) decref(version uint16) {
 LOAD_FLAG:
 	flag := m.flag.Load()
 	switch flag {
@@ -93,7 +93,7 @@ LOAD_FLAG:
 			return
 		}
 		if m.refcnt == 0 {
-			panic("dgo:go: decref() called on PinMeta with refcnt == 0")
+			panic("dgo:go: decref() called on Meta with refcnt == 0")
 		}
 		m.refcnt--
 		if m.refcnt == 0 && !m.intable {
@@ -107,7 +107,7 @@ LOAD_FLAG:
 }
 
 //lint:ignore U1000 go:linkname
-func pinMetaNewToken(m *PinMeta) untypedToken {
+func pinMetaNewToken(m *Meta) untypedToken {
 LOAD_FLAG:
 	flag := m.flag.Load()
 	switch flag {

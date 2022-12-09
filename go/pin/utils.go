@@ -1,4 +1,4 @@
-package dgo
+package pin
 
 import _ "unsafe"
 
