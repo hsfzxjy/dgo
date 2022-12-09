@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"strconv"
 
-	dgo "github.com/hsfzxjy/dgo/go"
+	"github.com/hsfzxjy/dgo/go/pin"
 	"github.com/hsfzxjy/dgo/tests/test_gen/go/internal/subpack"
 )
 
@@ -76,7 +76,7 @@ func (t TesterWithField) ReturnsSelf() TesterWithField {
 
 //dgo:export ,pinnable
 type Peripheral struct {
-	dgo.PinMeta
+	pin.Meta
 	id   int64
 	name string
 }
@@ -85,7 +85,7 @@ type Peripheral struct {
 type PinTester struct{}
 
 //dgo:export
-func (PinTester) MakeAndReturnsPeripheral() dgo.PinToken[Peripheral] {
+func (PinTester) MakeAndReturnsPeripheral() pin.Token[Peripheral] {
 	// we allocate a large array to ensure the garbadge collector will actively
 	// recycle it when runtime.GC() called
 	peripherals := new([100_0000]Peripheral)
@@ -102,7 +102,7 @@ func (PinTester) MakeAndReturnsPeripheral() dgo.PinToken[Peripheral] {
 }
 
 //dgo:export
-func (PinTester) AcceptPeripheralAndCompute(pt dgo.PinToken[Peripheral]) string {
+func (PinTester) AcceptPeripheralAndCompute(pt pin.Token[Peripheral]) string {
 	p := pt.Data()
 	p.Unpin()
 	return fmt.Sprintf("Peripheral<id=%d, name=%s>", p.id, p.name)
@@ -114,7 +114,7 @@ func (PinTester) GC() {
 }
 
 //dgo:export
-func (PinTester) AssertTokenInvalid(t dgo.PinToken[Peripheral]) {
+func (PinTester) AssertTokenInvalid(t pin.Token[Peripheral]) {
 	if !t.IsEmpty() {
 		panic("expect the token to be invalid")
 	}
