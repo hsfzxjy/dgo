@@ -9,7 +9,7 @@ import (
 
 type rawToken struct {
 	version uint16
-	_pad    [4]byte
+	lid     uint16
 	meta    *Meta
 }
 
@@ -21,13 +21,14 @@ type Token[T any] struct {
 
 var rawTokenPool sync.Pool
 
-func newToken[T any](meta *Meta) Token[T] {
+func newToken[T any](meta *Meta, lid uint16) Token[T] {
 	rt, ok := rawTokenPool.Get().(*rawToken)
 	if !ok {
 		rt = new(rawToken)
 	}
 	rt.version = meta.version
 	rt.meta = meta
+	rt.lid = lid
 	return Token[T]{rawToken: rt}
 }
 
@@ -36,7 +37,7 @@ func (t *Token[T]) Dispose() (success bool) {
 	if t.IsEmpty() {
 		return false
 	}
-	t.meta.decref(t.version)
+	t.meta.decref(t.version, t.lid)
 	untypedTokenLeak(untypedToken(*t))
 	return true
 }
@@ -53,7 +54,7 @@ func (t *Token[T]) IsEmpty() bool { return t.rawToken == nil || t.rawToken.meta 
 type untypedToken = Token[struct{}]
 
 //lint:ignore U1000 go:linkname
-func untypedTokenFromRaw(version uint16, data uintptr) (ret untypedToken) {
+func untypedTokenFromRaw(version uint16, lid uint16, data uintptr) (ret untypedToken) {
 	meta, ok := pinTable.m.Load(data)
 	if !ok {
 		return
@@ -71,11 +72,13 @@ LOAD_FLAG:
 			goto LOAD_FLAG
 		}
 		defer meta.flag.Store(flag)
-		if meta.version == version {
-			ret = newToken[struct{}](meta)
+		if meta.version == version &&
+			meta.lids.Test(uint(lid)) {
+			ret = newToken[struct{}](meta, lid)
 			ret.version = version
+			ret.lid = lid
 		}
-		// else: the version is mismatched, we return an empty token
+		// else: the version is mismatched or lid is invalid, we return an empty token
 		runtime_procUnpin()
 		return
 	case detached:
@@ -88,19 +91,21 @@ LOAD_FLAG:
 //lint:ignore U1000 go:linkname
 func untypedTokenLeak(token untypedToken) {
 	token.version = 0
+	token.lid = 0
 	token.meta = nil
 	rawTokenPool.Put(token.meta)
 }
 
 //lint:ignore U1000 go:linkname
-func untypedTokenExtract(token untypedToken) (version uint16, data uintptr) {
+func untypedTokenExtract(token untypedToken) (version uint16, lid uint16, data uintptr) {
 	version = token.version
+	lid = token.lid
 	data = uintptr(unsafe.Pointer(token.meta))
-	return version, data
+	return version, lid, data
 }
 
 //export dgo_DisposeToken
-func dgo_DisposeToken(version C.uint16_t, data C.uintptr_t) {
-	token := untypedTokenFromRaw(uint16(version), uintptr(data))
+func dgo_DisposeToken(version C.uint16_t, lid C.uint16_t, data C.uintptr_t) {
+	token := untypedTokenFromRaw(uint16(version), uint16(lid), uintptr(data))
 	token.Dispose()
 }

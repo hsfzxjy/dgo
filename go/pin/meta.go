@@ -3,6 +3,8 @@ package pin
 import (
 	"sync/atomic"
 	"unsafe"
+
+	"github.com/bits-and-blooms/bitset"
 )
 
 const (
@@ -14,10 +16,10 @@ const (
 type Meta struct {
 	_       noCopy
 	flag    atomic.Uint32
-	refcnt  uint32
-	version uint16
 	intable bool
-	_pad    [1]byte
+	version uint16
+	lidcnt  uint16
+	lids    *bitset.BitSet
 	Extra   any
 }
 
@@ -34,8 +36,9 @@ LOAD_FLAG:
 			goto LOAD_FLAG
 		}
 		m.version = uint16(pinTable.nextVersion.Add(1))
-		m.refcnt = 0
 		m.intable = true
+		m.lidcnt = 0
+		m.lids = bitsetGet()
 		pinTable.m.Store(uintptr(m.key()), m)
 		m.flag.Store(attached)
 		runtime_procUnpin()
@@ -59,7 +62,9 @@ LOAD_FLAG:
 			goto LOAD_FLAG
 		}
 		m.intable = false
-		if m.refcnt == 0 {
+		if m.lidcnt == 0 {
+			bitsetRecycle(m.lids)
+			m.lids = nil
 			pinTable.m.Delete(m.key())
 			m.flag.Store(detached)
 		} else {
@@ -73,7 +78,7 @@ LOAD_FLAG:
 
 func (m *Meta) key() uintptr { return uintptr(unsafe.Pointer(m)) }
 
-func (m *Meta) decref(version uint16) {
+func (m *Meta) decref(version uint16, lid uint16) {
 LOAD_FLAG:
 	flag := m.flag.Load()
 	switch flag {
@@ -87,16 +92,17 @@ LOAD_FLAG:
 			runtime_procUnpin()
 			goto LOAD_FLAG
 		}
-		if m.version != version {
+		if m.version != version ||
+			!m.lids.Test(uint(lid)) {
 			m.flag.Store(flag)
 			runtime_procUnpin()
 			return
 		}
-		if m.refcnt == 0 {
-			panic("dgo:go: decref() called on Meta with refcnt == 0")
-		}
-		m.refcnt--
-		if m.refcnt == 0 && !m.intable {
+		m.lids.Clear(uint(lid))
+		m.lidcnt--
+		if m.lidcnt == 0 && !m.intable {
+			bitsetRecycle(m.lids)
+			m.lids = nil
 			pinTable.m.Delete(uintptr(m.key()))
 			m.flag.Store(detached)
 		} else {
@@ -108,6 +114,7 @@ LOAD_FLAG:
 
 //lint:ignore U1000 go:linkname
 func metaNewToken(m *Meta) untypedToken {
+	var lid uint16
 LOAD_FLAG:
 	flag := m.flag.Load()
 	switch flag {
@@ -121,9 +128,16 @@ LOAD_FLAG:
 			runtime_procUnpin()
 			goto LOAD_FLAG
 		}
-		m.refcnt++
+		var ok bool
+		lid, ok = bitsetFillFirstClear(m.lids)
+		if !ok {
+			m.flag.Store(flag)
+			runtime_procUnpin()
+			panic("dgo:go: too many allocated lids")
+		}
+		m.lidcnt++
 		m.flag.Store(attached)
 		runtime_procUnpin()
 	}
-	return newToken[struct{}](m)
+	return newToken[struct{}](m, lid)
 }
