@@ -84,11 +84,17 @@ type Peripheral struct {
 //dgo:export
 type PinTester struct{}
 
+var peripheralsFreed = false
+
 //dgo:export
 func (PinTester) MakeAndReturnsPeripheral() pin.Token[Peripheral] {
 	// we allocate a large array to ensure the garbadge collector will actively
 	// recycle it when runtime.GC() called
 	peripherals := new([100_0000]Peripheral)
+	runtime.SetFinalizer(peripherals, func(_ any) {
+		peripheralsFreed = true
+	})
+	peripheralsFreed = false
 	p := &peripherals[0]
 	p.id = 42
 	p.name = "MyDevice"
@@ -110,11 +116,16 @@ func (PinTester) AcceptPeripheralAndCompute(pt pin.Token[Peripheral]) string {
 
 //dgo:export
 func (PinTester) GC() {
+	// invoke runtime.GC() twice to ensure the finalizer is called
+	runtime.GC()
 	runtime.GC()
 }
 
 //dgo:export
 func (PinTester) AssertTokenInvalid(t pin.Token[Peripheral]) {
+	if !peripheralsFreed {
+		panic("expect peripheralsFreed == true")
+	}
 	if !t.IsEmpty() {
 		panic("expect the token to be invalid")
 	}
