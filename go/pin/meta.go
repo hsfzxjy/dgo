@@ -143,5 +143,5 @@ LOAD_FLAG:
 		m.flag.Store(flag)
 		runtime_procUnpin()
 	}
-	return newToken[struct{}](m, lid)
+	return newToken(m, lid)
 }

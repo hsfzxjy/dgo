@@ -21,7 +21,7 @@ type Token[T any] struct {
 
 var rawTokenPool sync.Pool
 
-func newToken[T any](meta *Meta, lid uint16) Token[T] {
+func newToken(meta *Meta, lid uint16) untypedToken {
 	rt, ok := rawTokenPool.Get().(*rawToken)
 	if !ok {
 		rt = new(rawToken)
@@ -29,7 +29,7 @@ func newToken[T any](meta *Meta, lid uint16) Token[T] {
 	rt.version = meta.version
 	rt.meta = meta
 	rt.lid = lid
-	return Token[T]{rawToken: rt}
+	return Token[struct{}]{rawToken: rt}
 }
 
 // t should be dropped after Dispose() invoked
@@ -73,7 +73,7 @@ LOAD_FLAG:
 		}
 		if meta.version == version &&
 			meta.lids.Test(uint(lid)) {
-			ret = newToken[struct{}](meta, lid)
+			ret = newToken(meta, lid)
 			ret.version = version
 			ret.lid = lid
 		}
