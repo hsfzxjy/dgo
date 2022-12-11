@@ -51,7 +51,7 @@ class LibDgo {
   late final _dgo_DisposeTokenPtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-              ffi.Uint16, ffi.Uint16, uintptr_t)>>('dgo_DisposeToken');
+              ffi.Uint16, ffi.Uint8, uintptr_t)>>('dgo_DisposeToken');
   late final _dgo_DisposeToken =
       _dgo_DisposeTokenPtr.asFunction<void Function(int, int, int)>();
 }
