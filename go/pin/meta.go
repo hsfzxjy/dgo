@@ -1,10 +1,9 @@
 package pin
 
 import (
+	"math/bits"
 	"sync/atomic"
 	"unsafe"
-
-	"github.com/bits-and-blooms/bitset"
 )
 
 const (
@@ -21,9 +20,25 @@ type Meta struct {
 	_       noCopy
 	flag    atomic.Uint32
 	version uint16
-	lidcnt  uint16
-	lids    *bitset.BitSet
-	Extra   any
+	_pad    [2]byte
+	lids    uint64
+	ops     chan chanop
+}
+
+func (m *Meta) lidcnt() int { return bits.OnesCount64(m.lids) }
+func (m *Meta) lidtest(lid uint8) bool {
+	return lid < 64 && m.lids&(uint64(1)<<lid) != 0
+}
+func (m *Meta) lidclear(lid uint8) { m.lids &^= 1 << lid }
+func (m *Meta) lidset() (lid uint8, success bool) {
+	const full = ^uint64(0)
+	lids := m.lids
+	if lids == full {
+		return 0, false
+	}
+	x := bits.TrailingZeros64(^lids)
+	m.lids |= 1 << x
+	return uint8(x), true
 }
 
 func (m *Meta) Pin() (success bool) {
@@ -39,8 +54,7 @@ LOAD_FLAG:
 			goto LOAD_FLAG
 		}
 		m.version = uint16(pinTable.nextVersion.Add(1))
-		m.lidcnt = 0
-		m.lids = bitsetGet()
+		m.lids = 0
 		pinTable.m.Store(uintptr(m.key()), m)
 		m.flag.Store(attached_intable)
 		runtime_procUnpin()
@@ -66,9 +80,8 @@ LOAD_FLAG:
 			runtime_procUnpin()
 			goto LOAD_FLAG
 		}
-		if m.lidcnt == 0 {
-			bitsetRecycle(m.lids)
-			m.lids = nil
+		if m.lidcnt() == 0 {
+			m.lids = 0
 			pinTable.m.Delete(m.key())
 			m.flag.Store(detached)
 		} else {
@@ -82,7 +95,7 @@ LOAD_FLAG:
 
 func (m *Meta) key() uintptr { return uintptr(unsafe.Pointer(m)) }
 
-func (m *Meta) decref(version uint16, lid uint16) {
+func (m *Meta) decref(version uint16, lid uint8) {
 LOAD_FLAG:
 	flag := m.flag.Load()
 	switch flag {
@@ -97,16 +110,14 @@ LOAD_FLAG:
 			goto LOAD_FLAG
 		}
 		if m.version != version ||
-			!m.lids.Test(uint(lid)) {
+			!m.lidtest(lid) {
 			m.flag.Store(flag)
 			runtime_procUnpin()
 			return
 		}
-		m.lids.Clear(uint(lid))
-		m.lidcnt--
-		if m.lidcnt == 0 && flag&intable == 0 {
-			bitsetRecycle(m.lids)
-			m.lids = nil
+		m.lidclear(lid)
+		if m.lidcnt() == 0 && flag&intable == 0 {
+			m.lids = 0
 			pinTable.m.Delete(uintptr(m.key()))
 			m.flag.Store(detached)
 		} else {
@@ -118,7 +129,7 @@ LOAD_FLAG:
 
 //lint:ignore U1000 go:linkname
 func metaNewToken(m *Meta) untypedToken {
-	var lid uint16
+	var lid uint8
 	var version uint16
 LOAD_FLAG:
 	flag := m.flag.Load()
@@ -134,13 +145,12 @@ LOAD_FLAG:
 			goto LOAD_FLAG
 		}
 		var ok bool
-		lid, ok = bitsetFillFirstClear(m.lids)
+		lid, ok = m.lidset()
 		if !ok {
 			m.flag.Store(flag)
 			runtime_procUnpin()
 			panic("dgo:go: too many allocated lids")
 		}
-		m.lidcnt++
 		version = m.version
 		m.flag.Store(flag)
 		runtime_procUnpin()

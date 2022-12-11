@@ -9,7 +9,8 @@ import (
 
 type rawToken struct {
 	version uint16
-	lid     uint16
+	lid     uint8
+	_pad    [1]byte
 	meta    *Meta
 }
 
@@ -21,7 +22,7 @@ type Token[T any] struct {
 
 var rawTokenPool sync.Pool
 
-func newToken(meta *Meta, version uint16, lid uint16) untypedToken {
+func newToken(meta *Meta, version uint16, lid uint8) untypedToken {
 	rt, ok := rawTokenPool.Get().(*rawToken)
 	if !ok {
 		rt = new(rawToken)
@@ -54,7 +55,7 @@ func (t *Token[T]) IsEmpty() bool { return t.rawToken == nil || t.rawToken.meta 
 type untypedToken = Token[struct{}]
 
 //lint:ignore U1000 go:linkname
-func untypedTokenFromRaw(version uint16, lid uint16, data uintptr) (ret untypedToken) {
+func untypedTokenFromRaw(version uint16, lid uint8, data uintptr) (ret untypedToken) {
 	meta, ok := pinTable.m.Load(data)
 	if !ok {
 		return
@@ -72,7 +73,7 @@ LOAD_FLAG:
 			goto LOAD_FLAG
 		}
 		if meta.version == version &&
-			meta.lids.Test(uint(lid)) {
+			meta.lidtest(lid) {
 			ret = newToken(meta, version, lid)
 		}
 		// else: the version is mismatched or lid is invalid, we return an empty token
@@ -95,7 +96,7 @@ func untypedTokenLeak(token untypedToken) {
 }
 
 //lint:ignore U1000 go:linkname
-func untypedTokenExtract(token untypedToken) (version uint16, lid uint16, data uintptr) {
+func untypedTokenExtract(token untypedToken) (version uint16, lid uint8, data uintptr) {
 	version = token.version
 	lid = token.lid
 	data = uintptr(unsafe.Pointer(token.meta))
@@ -103,7 +104,7 @@ func untypedTokenExtract(token untypedToken) (version uint16, lid uint16, data u
 }
 
 //export dgo_DisposeToken
-func dgo_DisposeToken(version C.uint16_t, lid C.uint16_t, data C.uintptr_t) {
-	token := untypedTokenFromRaw(uint16(version), uint16(lid), uintptr(data))
+func dgo_DisposeToken(version C.uint16_t, lid C.uint8_t, data C.uintptr_t) {
+	token := untypedTokenFromRaw(uint16(version), uint8(lid), uintptr(data))
 	token.Dispose()
 }
