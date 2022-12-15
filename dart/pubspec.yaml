@@ -21,7 +21,7 @@ import_sorter:
     - lib/dgo_binding.dart
 
 ffigen:
-  output: lib/dgo_binding.dart
+  output: lib/src/dgo_binding.dart
   name: LibDgo
   headers:
     entry-points:
