@@ -7,7 +7,6 @@ import "C"
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"math"
 	"reflect"
 	"runtime"
@@ -50,7 +49,7 @@ func dgo__PostCObjects(port *Port, n int, arr *Dart_CObject) bool {
 /* Port Methods */
 
 func (p *Port) panicPostFailure() {
-	log.Panicf("dgo:go: fail to post via port [key=%064X]", p.key())
+	panic("dgo:go: fail to post via " + p.String())
 }
 
 func (p *Port) postInt(value int64, raises bool) bool {
