@@ -18,7 +18,7 @@ dev_dependencies:
 
 import_sorter:
   ignored_files:
-    - lib/dgo_binding.dart
+    - lib/src/dgo_binding.dart
 
 ffigen:
   output: lib/src/dgo_binding.dart
