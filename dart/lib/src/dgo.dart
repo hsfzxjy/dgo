@@ -36,12 +36,6 @@ class Dgo extends DgoPortLike with _PortMixin {
 
   Future<DgoPort> newPort(DynamicLibrary dylib, {String name = 'custom'}) =>
       DgoPort._build('dgo:dart:$name', dylib, isDefault: false);
-
-  DgoObject Function(int typeId, DgoPort port, Iterator args)
-      get buildObjectById => _buildObjectById;
-
-  T Function<T extends DgoObject>(DgoPort port, Iterator args)
-      get buildObject => _buildObject;
 }
 
 final dgo = Dgo();
