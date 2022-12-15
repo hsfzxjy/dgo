@@ -1,5 +1,19 @@
 part of dgo;
 
+class _DartCallbackGroup implements _Handlable {
+  final int number;
+  final DgoPort port;
+  const _DartCallbackGroup._(this.number, this.port);
+
+  @override
+  void _handleObjects(Iterable objs) {
+    final args = objs.skip(number);
+    for (DartCallback x in objs.take(number)) {
+      _InvokingDartCallback._(x._id, x._port)._handleObjects(args);
+    }
+  }
+}
+
 class DartCallback implements _Serializable {
   final int _id;
   final DgoPort _port;

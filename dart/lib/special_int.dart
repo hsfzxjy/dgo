@@ -6,7 +6,8 @@ enum _SpecialIntKind {
   goObject(2),
   goMethod(3),
   dartFutureCallback(4),
-  dartStreamCallback(5);
+  dartStreamCallback(5),
+  dartCallbackGroup(6);
 
   const _SpecialIntKind(this.value);
   factory _SpecialIntKind.fromInt(int value) {
@@ -64,6 +65,8 @@ _Builder<_Handlable> _kindAsHandlableBuilder(_SpecialIntKind kind) {
   switch (kind) {
     case _SpecialIntKind.dartCalback:
       return _InvokingDartCallback._;
+    case _SpecialIntKind.dartCallbackGroup:
+      return _DartCallbackGroup._;
     default:
       throw 'unreachable';
   }
