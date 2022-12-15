@@ -1,4 +1,7 @@
+@Timeout(Duration(seconds: 5))
+
 // Dart imports:
+import 'dart:async';
 import 'dart:ffi';
 
 // Package imports:
@@ -71,19 +74,97 @@ void main() async {
   });
 
   group('PinTester', () {
-    test('PinAndThenDispose', () async {
-      final p = await PinTester().MakeAndReturnsPeripheral();
+    void testP(String description, Function(PinToken<Peripheral>) body) {
+      test(description, () async {
+        final gc = Completer<bool>();
+        final p =
+            await PinTester().MakeAndReturnsPeripheral(dgo.pendFuture(gc).id);
+        await body(p);
+        for (final i in Iterable.generate(5)) {
+          final timeLimit = Duration(milliseconds: 100 << i);
+          await PinTester().GC();
+          final gcSuccess =
+              await gc.future.timeout(timeLimit, onTimeout: () => false);
+          if (gcSuccess) return;
+          print('p is not GCed within $timeLimit');
+        }
+        await expectLater(gc.future, completes);
+      });
+    }
+
+    testP('token invalid after GC', (p) async {
       expect(p.id, 42);
       expect(p.name, 'MyDevice');
       final result = await PinTester().AcceptPeripheralAndCompute(p);
-      expect(result, 'Peripheral<id=42, name=MyDevice>');
+      final expected = 'Peripheral<id=42, name=MyDevice>';
+      expect(result, expected);
+      expect(await p.ToString(), expected);
       p.dispose();
       expect(
         p.dispose,
-        throwsA(matches(RegExp(r'^dgo:dart:.*only once$'))),
+        throwsA(matches(RegExp(r'^dgo:dart:.*exactly once$'))),
       );
       await PinTester().GC();
       await PinTester().AssertTokenInvalid(p);
+    });
+
+    testP('chan functionality', (p) async {
+      final stream = p.state;
+      final fut = expectLater(stream, emitsInOrder([1, 2, 3, emitsDone]));
+      await PinTester().StartStateAndUnpin(p, true, true);
+      await fut;
+      p.dispose();
+      await PinTester().AssertTokenInvalid(p);
+    });
+
+    testP('stream done even chan not closed', (p) async {
+      final stream = p.state.asBroadcastStream();
+      final fut = expectLater(stream, emitsInOrder([1, 2, 3]));
+      await PinTester().StartStateAndUnpin(p, true, false);
+      await fut;
+      p.dispose();
+      await expectLater(stream, emitsDone);
+      await PinTester().AssertTokenInvalid(p);
+    });
+
+    testP('stream directly done after chan closed', (p) async {
+      final stream = p.state.asBroadcastStream();
+      await PinTester().StartStateAndUnpin(p, false, true);
+      await expectLater(stream, emitsDone);
+      p.dispose();
+      await expectLater(stream, emitsDone);
+      await PinTester().AssertTokenInvalid(p);
+    });
+
+    testP('stream done after token disposed', (p) async {
+      final state = p.state;
+      await PinTester().StartStateAndUnpin(p, true, false);
+      p.dispose();
+      final fut = expectLater(state, emitsDone);
+      await fut;
+    });
+
+    testP('blockUntilListen', (p) async {
+      final state = p.stateBlock;
+      await PinTester().StartStateBlockAndUnpin(p);
+      await expectLater(state, emitsInOrder([1, 2, 3, emitsDone]));
+      p.dispose();
+    });
+
+    testP('broadcast', (p) async {
+      final state = p.stateBroadcast;
+      final fut = expectLater(state, emitsInOrder([1, 2, 3, emitsDone]));
+      await PinTester().StartStateBroadcastAndUnpin(p);
+      await fut;
+      expect(state.isBroadcast, isTrue);
+      p.dispose();
+    });
+
+    testP('memorized', (p) async {
+      final state = p.stateMemo;
+      await PinTester().StartStateMemoAndUnpin(p);
+      await expectLater(state, emitsInOrder([3]));
+      p.dispose();
     });
   });
 }

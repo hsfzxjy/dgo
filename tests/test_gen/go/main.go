@@ -6,7 +6,9 @@ import (
 	"regexp"
 	"runtime"
 	"strconv"
+	"time"
 
+	dgo "github.com/hsfzxjy/dgo/go"
 	"github.com/hsfzxjy/dgo/go/pin"
 	"github.com/hsfzxjy/dgo/tests/test_gen/go/internal/subpack"
 )
@@ -79,25 +81,37 @@ type Peripheral struct {
 	pin.Meta
 	id   int64
 	name string
+
+	state          chan int
+	stateBlock     chan int `dgo:",block"`
+	stateBroadcast chan int `dgo:",broadcast"`
+	stateMemo      chan int `dgo:",memo"`
+}
+
+//dgo:export
+func (p *Peripheral) ToString() string {
+	return fmt.Sprintf("Peripheral<id=%d, name=%s>", p.id, p.name)
 }
 
 //dgo:export
 type PinTester struct{}
 
-var peripheralsFreed = false
-
 //dgo:export
-func (PinTester) MakeAndReturnsPeripheral() pin.Token[Peripheral] {
+func (PinTester) MakeAndReturnsPeripheral(rcb uint32) pin.Token[Peripheral] {
+	cb := dgo.DartFutureCallback(dgo.WrapDartCallback(rcb, nil))
 	// we allocate a large array to ensure the garbadge collector will actively
 	// recycle it when runtime.GC() called
 	peripherals := new([100_0000]Peripheral)
 	runtime.SetFinalizer(peripherals, func(_ any) {
-		peripheralsFreed = true
+		cb.Resolve(true)
 	})
-	peripheralsFreed = false
 	p := &peripherals[0]
 	p.id = 42
 	p.name = "MyDevice"
+	p.state = make(chan int)
+	p.stateBlock = make(chan int)
+	p.stateBroadcast = make(chan int)
+	p.stateMemo = make(chan int)
 	p.Pin()
 	t := p.NewToken()
 	if !t.Dispose() || t.Dispose() {
@@ -105,6 +119,66 @@ func (PinTester) MakeAndReturnsPeripheral() pin.Token[Peripheral] {
 	}
 	t = p.NewToken()
 	return t
+}
+
+func send(ch chan<- int, value int) {
+	select {
+	case ch <- value:
+	case <-time.After(200 * time.Millisecond):
+		println("send timeout")
+	}
+}
+
+//dgo:export
+func (PinTester) StartStateAndUnpin(t pin.Token[Peripheral], async_ bool, toClose bool) {
+	data := t.Data()
+	f := func() {
+		send(data.state, 1)
+		send(data.state, 2)
+		send(data.state, 3)
+		if toClose {
+			close(data.state)
+		}
+	}
+	if async_ {
+		go f()
+	} else {
+		f()
+	}
+	data.Unpin()
+}
+
+//dgo:export
+func (PinTester) StartStateBroadcastAndUnpin(t pin.Token[Peripheral]) {
+	data := t.Data()
+	go func() {
+		send(data.stateBroadcast, 1)
+		send(data.stateBroadcast, 2)
+		send(data.stateBroadcast, 3)
+		close(data.stateBroadcast)
+	}()
+	data.Unpin()
+}
+
+//dgo:export
+func (PinTester) StartStateBlockAndUnpin(t pin.Token[Peripheral]) {
+	data := t.Data()
+	go func() {
+		send(data.stateBlock, 1)
+		send(data.stateBlock, 2)
+		send(data.stateBlock, 3)
+		close(data.stateBlock)
+	}()
+	data.Unpin()
+}
+
+//dgo:export
+func (PinTester) StartStateMemoAndUnpin(t pin.Token[Peripheral]) {
+	data := t.Data()
+	send(data.stateMemo, 1)
+	send(data.stateMemo, 2)
+	send(data.stateMemo, 3)
+	data.Unpin()
 }
 
 //dgo:export
@@ -123,9 +197,6 @@ func (PinTester) GC() {
 
 //dgo:export
 func (PinTester) AssertTokenInvalid(t pin.Token[Peripheral]) {
-	if !peripheralsFreed {
-		panic("expect peripheralsFreed == true")
-	}
 	if !t.IsEmpty() {
 		panic("expect the token to be invalid")
 	}

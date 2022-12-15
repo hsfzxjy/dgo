@@ -5,8 +5,14 @@ import "github.com/hsfzxjy/dgo/go/pin"
 //dgo:export ,pinnable
 type StructPinnable struct {
 	pin.Meta
-	value int
-	a     StructWithPointerToSingleType
+	value          int
+	a              StructWithPointerToSingleType
+	state          chan int
+	state2         chan int
+	statedyn       chan []int
+	stateMemo      chan int `dgo:",memo"`
+	stateBroadcast chan int `dgo:",broadcast"`
+	stateBlock     chan int `dgo:",block"`
 }
 
 //dgo:export
