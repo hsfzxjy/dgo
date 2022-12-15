@@ -49,7 +49,7 @@ func _buildHandlable(kind _SpecialIntKind, port *Port, payload uint64) _Handlabl
 	case sikGoCallback:
 		return invokingGoCallback{payload, port}
 	case sikGoMethod:
-		return invokingGoMethod{MethodCallId(payload), port}
+		return invokingGoMethod{payload, port}
 	default:
 		panic("unreachable")
 	}
