@@ -78,5 +78,6 @@ const vArgs = GeneratorSymbol('#!vArgs');
 const vIndex = GeneratorSymbol('#!vIndex');
 const vHolder = GeneratorSymbol('#!vHolder');
 const vSize = GeneratorSymbol('#!vSize');
+const vPort = GeneratorSymbol('#!vPort');
 
 typedef JsonMap = Map<String, dynamic>;

@@ -22,10 +22,12 @@ class TypeDefinition {
   EntryUri get myUri => ir.myUri!;
   File get file => fileset[myUri.goMod.dartModFile];
   String get entryName => myUri.name;
+  String get pinTokenName => '_$entryName\$PinTokenImpl';
   String get constructorName => isEnum ? '.of' : '';
   String get renameTo => data['Rename'];
 
-  Map<String, OpField> get structFields => (ir as OpStruct).fields;
+  OpStruct get struct => ir as OpStruct;
+  Map<String, OpField> get structFields => struct.fields;
 
   Iterable<Method> get methods => (data['Methods'] as List)
       .cast<JsonMap>()
@@ -48,6 +50,7 @@ class TypeDefinition {
       vIndex: '\$index',
       vHolder: '\$o',
       vSize: '\$size',
+      vPort: '\$port',
     });
 
     ctx
@@ -66,6 +69,12 @@ class TypeDefinition {
       ..scope({}, _build$dgoStore)
       ..scope({}, _build$dgoGoSize)
       ..for_(methods, (method) => method.writeSnippet())
+      ..if_(
+          isPinnable,
+          () => ctx
+            ..sln('static \$dgo.PinToken<$entryName> Function(')
+            ..sln('\$dgo.DgoPort, \$core.Iterator)')
+            ..sln('\$dgoLoadPinToken = $pinTokenName.\$dgoLoad;'))
       ..sln('}')
       ..if_(
         renameTo.isNotEmpty,
@@ -77,6 +86,7 @@ class TypeDefinition {
         isPinnable,
         () => ctx
           ..sln()
+          ..then(_buildPinToken)
           ..then(_buildPinTokenExtension),
       );
   }
@@ -139,7 +149,7 @@ class TypeDefinition {
   void _build$dgoLoad() => ctx
     ..sln('@\$meta.protected')
     ..sln('static ${ir.outerDartType} '
-        '\$dgoLoad(\$core.Iterator<\$core.dynamic> $vArgs) {')
+        '\$dgoLoad(\$dgo.DgoPort $vPort, \$core.Iterator<\$core.dynamic> $vArgs) {')
     ..sln('${ir.dartType} $vHolder;')
     ..scope({}, ir.writeSnippet$dgoLoad)
     ..if_(
@@ -159,24 +169,105 @@ class TypeDefinition {
     ..sln('return $vIndex;')
     ..sln('}');
 
+  void _buildPinToken() => ctx
+    ..sln('class $pinTokenName extends \$dgo.PinToken<$entryName> {')
+    ..sln('final \$dgo.DgoPort _port;')
+    ..sln('final \$core.int _version;')
+    ..sln('final \$core.int _lid;')
+    ..sln('final \$core.int _key;')
+    ..sln('final $entryName _data;')
+    ..sln('\$core.bool _disposed = false;')
+    ..sln()
+    ..sln('$pinTokenName._(this._port, this._version, ')
+    ..sln('this._lid, this._key, this._data);')
+    ..sln()
+    ..for_(
+      struct.chans.values,
+      (ch) => ctx
+        ..sln('\$dgo.DartCallback? \$c${ch.chid}dcb;')
+        ..sln('late final \$c${ch.chid} = ')
+        ..sln('\$async.StreamController<${ch.dartType}>')
+        ..sln(ch.isBroadcast ? '.broadcast' : '')
+        ..sln('(onListen: _c${ch.chid}Listen, ')
+        ..sln('onCancel: () {')
+        ..sln('\$c${ch.chid}dcb?.remove();')
+        ..sln('\$dgo.PreservedGoCall.chanCancelListen(_port, ')
+        ..sln('[_version, _lid, _key, ${ch.chid}]);')
+        ..sln('});')
+        ..sln()
+        ..sln('void _c${ch.chid}Listen() {')
+        ..sln('void callback(\$core.Iterable args) {')
+        ..sln('final $vArgs = args.iterator; $vArgs.moveNext();')
+        ..sln('\$dgo.InvokeContext ctx = $vArgs.current; $vArgs.moveNext();')
+        ..sln('if (ctx.flag.hasPop) { \$c${ch.chid}.close(); return; }')
+        ..sln('${ch.dartType} $vHolder;')
+        ..scope({}, ch.writeSnippet$dgoLoad)
+        ..sln('\$c${ch.chid}.add($vHolder); }')
+        ..sln('if (_disposed) { \$c${ch.chid}.close(); return; }')
+        ..sln('\$c${ch.chid}dcb = _port.pend(callback);')
+        ..sln('\$dgo.PreservedGoCall.chanListen(_port, ')
+        ..sln('[_version, _lid, _key, ${ch.chid}, \$c${ch.chid}dcb!.id]); }'),
+    )
+    ..sln()
+    ..sln('@\$core.override $entryName dispose() {')
+    ..sln('if (_disposed) {')
+    ..sln("throw 'dgo:dart: PinToken.dispose() '")
+    ..sln("'must be called for exactly once'; }")
+    ..sln('_disposed = true;')
+    ..for_(struct.chans.values,
+        (ch) => ctx..sln('\$c${ch.chid}dcb?.remove(); \$c${ch.chid}.close();'))
+    ..sln('\$dgo.PreservedGoCall.tokenDispose(_port, [_version, _lid, _key]);')
+    ..sln('return _data; }')
+    ..sln()
+    ..sln(
+        '@\$core.override \$core.int \$dgoStore(\$core.List args, \$core.int index) {')
+    ..sln('args[index] = _version;')
+    ..sln('args[index + 1] = _lid;')
+    ..sln('args[index + 2] = _key;')
+    ..sln('return index + 3; }')
+    ..sln()
+    ..sln('@\$core.override \$core.String toString() => ')
+    ..sln("'\$runtimeType(\$_version, \$_lid, \$_key)';")
+    ..sln()
+    ..sln('static \$dgo.PinToken<$entryName> \$dgoLoad(')
+    ..sln('\$dgo.DgoPort port, \$core.Iterator args) {')
+    ..sln('final version = args.current;')
+    ..sln('args.moveNext();')
+    ..sln('final lid = args.current;')
+    ..sln('args.moveNext();')
+    ..sln('final key = args.current;')
+    ..sln('args.moveNext();')
+    ..sln('final data = $entryName.\$dgoLoad(port, args);')
+    ..sln('return $pinTokenName._(port, version, lid, key, data); }')
+    ..sln('}');
+
   void _buildPinTokenExtension() {
     final ir = this.ir as OpStruct;
     ctx
       ..sln('extension $entryName\$PinTokenExt on \$dgo.PinToken<$entryName> {')
+      ..sln('$pinTokenName get _token {')
+      ..sln('final token = this as $pinTokenName;')
+      ..sln('if (token._disposed) {')
+      ..sln("throw 'dgo:dart: \$token is disposed'; }")
+      ..sln('return token; }')
+      ..sln()
+      ..for_(
+        struct.chans.values,
+        (ch) => ctx
+          ..sln('\$async.Stream<${ch.dartType}>')
+          ..sln('get ${ch.name} => _token.\$c${ch.chid}.stream;'),
+      )
+      ..sln()
       ..for_(
         ir.fields.values,
         (field) => ctx
           ..sln('${field.dartType} get ${field.name} =>')
-          ..sln(' \$dgo.checkTokenValidity(this, \$data.${field.name});')
+          ..sln(' _token._data.${field.name};')
           ..sln(),
       )
       ..for_(
         methods,
-        (method) => ctx
-          ..sln(method.signature('Function'))
-          ..sln('get ${method.funcName} =>')
-          ..sln('\$dgo.checkTokenValidity(this, \$data.${method.funcName});')
-          ..sln(),
+        (method) => ctx..then(method.writePinTokenSnippet),
       )
       ..sln('}');
   }

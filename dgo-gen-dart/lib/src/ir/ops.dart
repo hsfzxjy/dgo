@@ -338,12 +338,31 @@ class OpField extends IR {
 }
 
 @immutable
+class OpChanField extends OpField {
+  final int chid;
+  final bool isBroadcast;
+  OpChanField._(this.chid, super.m)
+      : isBroadcast = m['Broadcast'],
+        super.fromMap();
+  factory OpChanField.fromMap(JsonMap m) {
+    final term = m['Term'];
+    m['Term'] = term['Elem'];
+    return OpChanField._(term['Chid'], m);
+  }
+}
+
+@immutable
 class OpStruct extends Namable {
   final Map<String, OpField> fields;
+  final Map<String, OpChanField> chans;
 
   OpStruct.fromMap(JsonMap m)
       : fields = (m['Fields'] as List)
-            .map((e) => MapEntry(e['Name'] as String, _buildIR(e) as OpField))
+            .map((e) => MapEntry(e['Name'] as String, OpField.fromMap(e)))
+            .where((entry) => entry.value.sendToDart)
+            .asMap(ordered: true),
+        chans = (m['Chans'] as List)
+            .map((e) => MapEntry(e['Name'] as String, OpChanField.fromMap(e)))
             .where((entry) => entry.value.sendToDart)
             .asMap(ordered: true),
         super(m);
@@ -463,7 +482,7 @@ class OpPinToken extends IR {
 
   @override
   void writeSnippet$dgoLoad() {
-    ctx.sln('$vHolder = \$dgo.PinToken.\$dgoLoad<${term.dartType}>($vArgs);');
+    ctx.sln('$vHolder = ${term.dartType}.\$dgoLoadPinToken($vPort, $vArgs);');
   }
 
   @override

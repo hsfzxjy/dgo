@@ -14,14 +14,14 @@ extension _NullableIRExt on IR? {
 }
 
 extension _IRExt on IR {
-  void writeSnippetLoad(GeneratorContext ctx) {
+  void writeSnippetLoad() {
     if (this is Namable && (this as Namable).isNamed) {
       final myUri = (this as Namable).myUri!;
       ctx
         ..sln('{')
         ..sln('$vHolder = ')
         ..sln(ctx.importer.qualifyUri(myUri))
-        ..sln('.\$dgoLoad($vArgs);')
+        ..sln('.\$dgoLoad($vPort, $vArgs);')
         ..sln('}');
     } else {
       writeSnippet$dgoLoad();
@@ -49,19 +49,20 @@ class Method {
         returnType = _buildIRNull(m['Return']),
         returnError = m['ReturnError'];
 
-  bool get isGoNotDynamic =>
-      self.isGoNotDynamic && params.every((p) => p.term.isGoNotDynamic);
+  bool get isParamsGoNotDynamic => params.every((p) => p.term.isGoNotDynamic);
 
-  void _buildSize() {
-    if (isGoNotDynamic) {
-      final size = params.map((p) => p.term.goSize).sum() + self.goSize;
+  void _buildSize([int? selfSize]) {
+    if (selfSize == -1) throw 'unreachable';
+    selfSize ??= self.goSize;
+    if (isParamsGoNotDynamic && selfSize != -1) {
+      final size = params.map((p) => p.term.goSize).sum() + selfSize;
       ctx.sln('final $vSize = $size;');
       return;
     }
 
     ctx
       ..sln()
-      ..sln('\$core.int $vSize = \$dgoGoSize;')
+      ..sln('\$core.int $vSize = ${selfSize == -1 ? "\$dgoGoSize" : selfSize};')
       ..for_(
         params,
         (p) => ctx
@@ -85,15 +86,28 @@ class Method {
     return '\$async.Future<${returnType.dartType}> $funcName($paramSig)';
   }
 
-  void writeSnippet() {
+  void writePinTokenSnippet() => _writeSnippet(
+      selfSize: 3,
+      methodFlag: '\$dgo.GoMethod.pinned',
+      storeSelf: () =>
+          ctx..sln('$vIndex = _token.\$dgoStore($vArgs, $vIndex);'));
+
+  void writeSnippet() => _writeSnippet(
+      storeSelf: () => ctx..sln('$vIndex = \$dgoStore($vArgs, $vIndex);'));
+
+  // TODO: BAD, BAD, refactor this
+  void _writeSnippet(
+      {int? selfSize,
+      String methodFlag = '0',
+      required void Function() storeSelf}) {
     ctx
       ..sln('${signature(funcName)} async {')
-      ..sln('\$port ??= \$dgo.dgo.defaultPort;')
-      ..then(_buildSize)
+      ..sln('final \$\$port = $vPort ?? \$dgo.dgo.defaultPort;')
+      ..pipe(_buildSize(selfSize))
       ..sln('final $vArgs = \$core.List<\$core.dynamic>'
           '.filled($vSize, null, growable: false);')
       ..sln('var $vIndex = 0;')
-      ..sln('$vIndex = \$dgoStore($vArgs, $vIndex);')
+      ..then(storeSelf)
       ..for_(
           params,
           (param) => ctx
@@ -102,7 +116,7 @@ class Method {
             ..then(param.term.writeSnippet$dgoStore)
             ..sln('}'))
       ..sln(
-        'final \$future = \$dgo.GoMethod($funcId, \$port)'
+        'final \$future = \$dgo.GoMethod($funcId, $methodFlag, \$\$port)'
         '.${returnType == null ? "call" : "callWithResult"}'
         '($vArgs, timeout: \$timeout, hasError: $returnError);',
       )
@@ -114,7 +128,7 @@ class Method {
           ..sln('final $vArgs = (await \$future).iterator;')
           ..sln('$vArgs.moveNext();')
           ..sln('${returnType!.dartType} $vHolder;')
-          ..pipe(returnType!.writeSnippetLoad(ctx))
+          ..scope({vPort: '\$\$port'}, returnType!.writeSnippetLoad)
           ..sln('return $vHolder;')
           ..sln('}'),
       )
