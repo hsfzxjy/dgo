@@ -87,6 +87,29 @@ func (p *Port) postCObjects(objs []Dart_CObject, keepAlive any, raises bool) boo
 	return ret
 }
 
+func (p *Port) postCObjects2(objs1, objs2 []Dart_CObject, keepAlive any, raises bool) bool {
+	var p1, p2 *Dart_CObject
+	if len(objs1) != 0 {
+		p1 = &objs1[0]
+	}
+	if len(objs2) != 0 {
+		p2 = &objs2[0]
+	}
+	ret := bool(C.dgo__PostCObjects2(
+		C.Dart_Port_DL(p.sendPortKey),
+		C.int(len(objs1)),
+		noescape(p1),
+		C.int(len(objs2)),
+		noescape(p2)))
+	runtime.KeepAlive(objs1)
+	runtime.KeepAlive(objs2)
+	runtime.KeepAlive(keepAlive)
+	if !ret && raises {
+		p.panicPostFailure()
+	}
+	return ret
+}
+
 func (p *Port) close() {
 	if !p.isClosed.CompareAndSwap(false, true) {
 		return
