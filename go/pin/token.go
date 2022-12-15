@@ -5,6 +5,9 @@ import "C"
 import (
 	"sync"
 	"unsafe"
+
+	dgo "github.com/hsfzxjy/dgo/go"
+	"github.com/hsfzxjy/dgo/go/pin/pchan"
 )
 
 type rawToken struct {
@@ -20,13 +23,12 @@ type Token[T any] struct {
 	_ struct{}
 }
 
-var rawTokenPool sync.Pool
+var rawTokenPool = sync.Pool{
+	New: func() any { return new(rawToken) },
+}
 
 func newToken(meta *Meta, version uint16, lid uint8) untypedToken {
-	rt, ok := rawTokenPool.Get().(*rawToken)
-	if !ok {
-		rt = new(rawToken)
-	}
+	rt := rawTokenPool.Get().(*rawToken)
 	rt.version = version
 	rt.meta = meta
 	rt.lid = lid
@@ -73,7 +75,7 @@ LOAD_FLAG:
 			goto LOAD_FLAG
 		}
 		if meta.version == version &&
-			meta.lidtest(lid) {
+			meta.lids.Test(lid) {
 			ret = newToken(meta, version, lid)
 		}
 		// else: the version is mismatched or lid is invalid, we return an empty token
@@ -92,7 +94,7 @@ func untypedTokenLeak(token untypedToken) {
 	token.version = 0
 	token.lid = 0
 	token.meta = nil
-	rawTokenPool.Put(token.meta)
+	rawTokenPool.Put(token.rawToken)
 }
 
 //lint:ignore U1000 go:linkname
@@ -103,8 +105,28 @@ func untypedTokenExtract(token untypedToken) (version uint16, lid uint8, data ui
 	return version, lid, data
 }
 
-//export dgo_DisposeToken
-func dgo_DisposeToken(version C.uint16_t, lid C.uint8_t, data C.uintptr_t) {
+//go:linkname pin_TokenDispose github.com/hsfzxjy/dgo/go.pin_TokenDispose
+func pin_TokenDispose(version uint16, lid uint8, data uintptr) {
 	token := untypedTokenFromRaw(uint16(version), uint8(lid), uintptr(data))
 	token.Dispose()
 }
+
+//go:linkname pin_ChanListen github.com/hsfzxjy/dgo/go.pin_ChanListen
+func pin_ChanListen(version uint16, lid uint8, data uintptr, chid uint8, dcb uint32, port *dgo.Port) {
+	token := untypedTokenFromRaw(uint16(version), uint8(lid), uintptr(data))
+	if token.IsEmpty() {
+		return
+	}
+	token.meta.ops <- pchan.Op{Kind: pchan.CHAN_LISTEN, Lid: lid, Chid: chid, Dcb: dcb, Port: port}
+}
+
+//go:linkname pin_ChanCancelListen github.com/hsfzxjy/dgo/go.pin_ChanCancelListen
+func pin_ChanCancelListen(version uint16, lid uint8, data uintptr, chid uint8) {
+	token := untypedTokenFromRaw(uint16(version), uint8(lid), uintptr(data))
+	if token.IsEmpty() {
+		return
+	}
+	token.meta.ops <- pchan.Op{Kind: pchan.CHAN_CANCEL_LISTEN, Lid: lid, Chid: chid}
+}
+
+var _ = pin_ChanCancelListen

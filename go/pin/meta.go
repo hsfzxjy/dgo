@@ -1,9 +1,11 @@
 package pin
 
 import (
-	"math/bits"
 	"sync/atomic"
 	"unsafe"
+
+	"github.com/hsfzxjy/dgo/go/pin/bitset"
+	"github.com/hsfzxjy/dgo/go/pin/pchan"
 )
 
 const (
@@ -20,34 +22,21 @@ type Meta struct {
 	_       noCopy
 	flag    atomic.Uint32
 	version uint16
-	_pad    [2]byte
-	lids    uint64
-	ops     chan chanop
+	nchans  uint8
+	_pad    [1]byte
+	lids    bitset.Bitset64
+	ops     chan pchan.Op
 }
 
-func (m *Meta) lidcnt() int { return bits.OnesCount64(m.lids) }
-func (m *Meta) lidtest(lid uint8) bool {
-	return lid < 64 && m.lids&(uint64(1)<<lid) != 0
-}
-func (m *Meta) lidclear(lid uint8) { m.lids &^= 1 << lid }
-func (m *Meta) lidset() (lid uint8, success bool) {
-	const full = ^uint64(0)
-	lids := m.lids
-	if lids == full {
-		return 0, false
-	}
-	x := bits.TrailingZeros64(^lids)
-	m.lids |= 1 << x
-	return uint8(x), true
-}
-
-func (m *Meta) Pin() (success bool) {
+//lint:ignore U1000 go:linkname
+func metaPin(m *Meta, nchans uint8, workerfn func(chan pchan.Op)) (success bool) {
 LOAD_FLAG:
 	flag := m.flag.Load()
 	switch flag {
 	case accessing:
 		goto LOAD_FLAG
 	case detached:
+		var ops chan pchan.Op
 		runtime_procPin()
 		if !m.flag.CompareAndSwap(flag, accessing) {
 			runtime_procUnpin()
@@ -55,9 +44,19 @@ LOAD_FLAG:
 		}
 		m.version = uint16(pinTable.nextVersion.Add(1))
 		m.lids = 0
+		m.nchans = nchans
+		if nchans > 0 {
+			ops = pchan.NewOpChan()
+			m.ops = ops
+		}
 		pinTable.m.Store(uintptr(m.key()), m)
 		m.flag.Store(attached_intable)
 		runtime_procUnpin()
+
+		if nchans > 0 {
+			go workerfn(ops)
+		}
+
 		return true
 	case attached_not_intable:
 		if !m.flag.CompareAndSwap(flag, attached_intable) {
@@ -68,6 +67,7 @@ LOAD_FLAG:
 }
 
 func (m *Meta) Unpin() (success bool) {
+	var ops chan pchan.Op
 LOAD_FLAG:
 	flag := m.flag.Load()
 	switch flag {
@@ -80,14 +80,23 @@ LOAD_FLAG:
 			runtime_procUnpin()
 			goto LOAD_FLAG
 		}
-		if m.lidcnt() == 0 {
+		if m.lids.IsEmpty() {
 			m.lids = 0
 			pinTable.m.Delete(m.key())
+			if m.nchans > 0 {
+				ops = m.ops
+				m.ops = nil
+			}
 			m.flag.Store(detached)
 		} else {
 			m.flag.Store(attached_not_intable)
 		}
 		runtime_procUnpin()
+
+		if ops != nil {
+			ops <- pchan.Op{Kind: pchan.META_DETACHED}
+		}
+
 		return true
 	}
 	return false
@@ -96,6 +105,7 @@ LOAD_FLAG:
 func (m *Meta) key() uintptr { return uintptr(unsafe.Pointer(m)) }
 
 func (m *Meta) decref(version uint16, lid uint8) {
+	var ops chan pchan.Op
 LOAD_FLAG:
 	flag := m.flag.Load()
 	switch flag {
@@ -110,20 +120,27 @@ LOAD_FLAG:
 			goto LOAD_FLAG
 		}
 		if m.version != version ||
-			!m.lidtest(lid) {
+			!m.lids.Test(lid) {
 			m.flag.Store(flag)
 			runtime_procUnpin()
 			return
 		}
-		m.lidclear(lid)
-		if m.lidcnt() == 0 && flag&intable == 0 {
+		m.lids.Clear(lid)
+		if m.lids.IsEmpty() && flag&intable == 0 {
 			m.lids = 0
 			pinTable.m.Delete(uintptr(m.key()))
+			if m.nchans > 0 {
+				ops = m.ops
+				m.ops = nil
+			}
 			m.flag.Store(detached)
 		} else {
 			m.flag.Store(flag)
 		}
 		runtime_procUnpin()
+	}
+	if ops != nil {
+		ops <- pchan.Op{Kind: pchan.META_DETACHED}
 	}
 }
 
@@ -145,7 +162,7 @@ LOAD_FLAG:
 			goto LOAD_FLAG
 		}
 		var ok bool
-		lid, ok = m.lidset()
+		lid, ok = m.lids.PickSet()
 		if !ok {
 			m.flag.Store(flag)
 			runtime_procUnpin()
