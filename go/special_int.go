@@ -70,8 +70,12 @@ func parseSpecialInt(port *Port, value uint64, handlable bool) (result _SpecialI
 	return result, true
 }
 
-func serializeSpecialInt(i _Serializable) uint64 {
+func serialize(kind _SpecialIntKind, payload uint64) uint64 {
 	return (specialIntMagic << (64 - 13)) |
-		(uint64(i.getKind()) << 48) |
-		i.getPayload()
+		(uint64(kind) << 48) |
+		payload
+}
+
+func serializeSpecialInt(i _Serializable) uint64 {
+	return serialize(i.getKind(), i.getPayload())
 }

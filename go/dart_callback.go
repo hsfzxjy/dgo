@@ -34,3 +34,4 @@ type CallableDartCallback struct {
 func (dcb CallableDartCallback) specialInt()              {}
 func (dcb CallableDartCallback) getPayload() uint64       { return dcb.payload }
 func (dcb CallableDartCallback) getKind() _SpecialIntKind { return sikDartCallback }
+func (dcb CallableDartCallback) serialize() uint64        { return serialize(dcb.getKind(), dcb.getPayload()) }

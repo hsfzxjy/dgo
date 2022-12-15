@@ -140,12 +140,12 @@ func (dcb CallableDartCallback) Call(args ...any) bool {
 		if len(args) != 0 {
 			panic("dgo:go: expect no argument when CF_FAST set")
 		}
-		return port.postInt(int64(serializeSpecialInt(dcb)), true)
+		return port.postInt(int64(dcb.serialize()), true)
 	}
 
 	n := len(args)
 	cobjs := make([]Dart_CObject, n+1)
-	cobjectLoadFromValue(&cobjs[0], dcb)
+	cobjectLoadFromValue(&cobjs[0], dcb.serialize())
 	for i, arg := range args {
 		args[i] = cobjectLoadFromValue(&cobjs[i+1], arg)
 	}
