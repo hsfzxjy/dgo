@@ -48,26 +48,26 @@ class Generator {
 
     ctx
       ..sln('\$dgo.DgoObject _buildObjectById(')
-      ..sln('\$core.int typeId, \$core.Iterator args) {')
+      ..sln('\$core.int typeId, \$dgo.DgoPort port, \$core.Iterator args) {')
       ..sln('switch (typeId) {')
       ..for_(
         typeNames,
         (typeName) => ctx
           ..sln('case $typeName.typeId:')
-          ..sln('return $typeName.\$dgoLoad(args);'),
+          ..sln('return $typeName.\$dgoLoad(port, args);'),
       )
       ..sln('default:')
       ..sln("throw 'dgo:dart: cannot build object for typeId=\$typeId'; } }");
 
     ctx
       ..sln('T _buildObject<T extends \$dgo.DgoObject>(')
-      ..sln('\$core.Iterator args) {')
+      ..sln('\$dgo.DgoPort port, \$core.Iterator args) {')
       ..sln('switch (T) {')
       ..for_(
         typeNames,
         (typeName) => ctx
           ..sln('case $typeName:')
-          ..sln('return $typeName.\$dgoLoad(args) as T;'),
+          ..sln('return $typeName.\$dgoLoad(port, args) as T;'),
       )
       ..sln('default:')
       ..sln("throw 'dgo:dart: cannot build object for type=\$T'; } }");

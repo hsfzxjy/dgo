@@ -271,7 +271,7 @@ class OpCoerce extends IR {
 
   @override
   void writeSnippet$dgoLoad() {
-    ctx.sln('$vHolder = $dartType.\$dgoLoad($vArgs);');
+    ctx.sln('$vHolder = $dartType.\$dgoLoad($vPort, $vArgs);');
   }
 
   @override
