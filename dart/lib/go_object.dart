@@ -9,13 +9,15 @@ abstract class DgoObject {
   int get $dgoGoSize;
 }
 
-late final DgoObject Function(int typeId, Iterator args) _buildObjectById;
-late final T Function<T extends DgoObject>(Iterator args) _buildObject;
+late final DgoObject Function(int typeId, DgoPort port, Iterator args)
+    _buildObjectById;
+late final T Function<T extends DgoObject>(DgoPort port, Iterator args)
+    _buildObject;
 
 @experimental
 void registerTypes(
-  DgoObject Function(int, Iterator) buildObjectById,
-  T Function<T extends DgoObject>(Iterator) buildObject,
+  DgoObject Function(int, DgoPort, Iterator) buildObjectById,
+  T Function<T extends DgoObject>(DgoPort, Iterator) buildObject,
 ) {
   _buildObjectById = buildObjectById;
   _buildObject = buildObject;
