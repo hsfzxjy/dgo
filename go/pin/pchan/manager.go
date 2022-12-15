@@ -5,6 +5,7 @@ import (
 
 	dgo "github.com/hsfzxjy/dgo/go"
 	"github.com/hsfzxjy/dgo/go/pin/bitset"
+	"github.com/hsfzxjy/dgo/go/pin/pcop"
 )
 
 type Manager struct {
@@ -27,7 +28,7 @@ func (m *Manager) Recycle() {
 	m.backing = nil
 }
 
-func (m *Manager) do_chan_listen(op Op) bool {
+func (m *Manager) do_chan_listen(op pcop.Op) bool {
 	Chid := op.Chid
 	if m.finished.Test(op.Chid) {
 		return false
@@ -38,17 +39,17 @@ func (m *Manager) do_chan_listen(op Op) bool {
 	listener.chid = op.Chid
 	listener.lid = op.Lid
 	listener.dcb = op.Dcb
-	listener.port = op.Port
+	listener.port = (*dgo.Port)(op.Port)
 	listener.next = *head
 	*head = listener
 	return true
 }
 
-func (m *Manager) do_chan_cancel_listen(op Op) {
+func (m *Manager) do_chan_cancel_listen(op pcop.Op) {
 	m.lidsets[op.Chid].Clear(op.Lid)
 }
 
-func (m *Manager) do_token_dispose(op Op) {
+func (m *Manager) do_token_dispose(op pcop.Op) {
 	Lid := op.Lid
 	//todo: vectorize
 	for i := range m.lidsets {
@@ -59,15 +60,15 @@ func (m *Manager) do_token_dispose(op Op) {
 // For op == CHAN_LISTEN, result == true if the listener was successfully registered;
 // for op == META_DETACHED, result is always true;
 // for other values of op, result is meaningless.
-func (m *Manager) Handle(op Op) (result bool) {
+func (m *Manager) Handle(op pcop.Op) (result bool) {
 	switch op.Kind {
-	case CHAN_LISTEN:
+	case pcop.CHAN_LISTEN:
 		return m.do_chan_listen(op)
-	case CHAN_CANCEL_LISTEN:
+	case pcop.CHAN_CANCEL_LISTEN:
 		m.do_chan_cancel_listen(op)
-	case TOKEN_DISPOSE:
+	case pcop.TOKEN_DISPOSE:
 		m.do_token_dispose(op)
-	case META_DETACHED:
+	case pcop.META_DETACHED:
 		return true
 	}
 	return false

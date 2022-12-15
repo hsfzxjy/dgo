@@ -5,7 +5,7 @@ import (
 	"unsafe"
 
 	"github.com/hsfzxjy/dgo/go/pin/bitset"
-	"github.com/hsfzxjy/dgo/go/pin/pchan"
+	"github.com/hsfzxjy/dgo/go/pin/pcop"
 )
 
 const (
@@ -25,18 +25,18 @@ type Meta struct {
 	nchans  uint8
 	_pad    [1]byte
 	lids    bitset.Bitset64
-	ops     chan pchan.Op
+	ops     chan pcop.Op
 }
 
 //lint:ignore U1000 go:linkname
-func metaPin(m *Meta, nchans uint8, workerfn func(chan pchan.Op)) (success bool) {
+func metaPin(m *Meta, nchans uint8, workerfn func(chan pcop.Op)) (success bool) {
 LOAD_FLAG:
 	flag := m.flag.Load()
 	switch flag {
 	case accessing:
 		goto LOAD_FLAG
 	case detached:
-		var ops chan pchan.Op
+		var ops chan pcop.Op
 		runtime_procPin()
 		if !m.flag.CompareAndSwap(flag, accessing) {
 			runtime_procUnpin()
@@ -46,7 +46,7 @@ LOAD_FLAG:
 		m.lids = 0
 		m.nchans = nchans
 		if nchans > 0 {
-			ops = pchan.NewOpChan()
+			ops = pcop.NewOpChan()
 			m.ops = ops
 		}
 		pinTable.m.Store(uintptr(m.key()), m)
@@ -67,7 +67,7 @@ LOAD_FLAG:
 }
 
 func (m *Meta) Unpin() (success bool) {
-	var ops chan pchan.Op
+	var ops chan pcop.Op
 LOAD_FLAG:
 	flag := m.flag.Load()
 	switch flag {
@@ -94,7 +94,7 @@ LOAD_FLAG:
 		runtime_procUnpin()
 
 		if ops != nil {
-			ops <- pchan.Op{Kind: pchan.META_DETACHED}
+			ops <- pcop.Op{Kind: pcop.META_DETACHED}
 		}
 
 		return true
@@ -105,7 +105,7 @@ LOAD_FLAG:
 func (m *Meta) key() uintptr { return uintptr(unsafe.Pointer(m)) }
 
 func (m *Meta) decref(version uint16, lid uint8) {
-	var ops chan pchan.Op
+	var ops chan pcop.Op
 LOAD_FLAG:
 	flag := m.flag.Load()
 	switch flag {
@@ -140,7 +140,7 @@ LOAD_FLAG:
 		runtime_procUnpin()
 	}
 	if ops != nil {
-		ops <- pchan.Op{Kind: pchan.META_DETACHED}
+		ops <- pcop.Op{Kind: pcop.META_DETACHED}
 	}
 }
 

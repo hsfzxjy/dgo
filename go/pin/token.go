@@ -4,8 +4,7 @@ import (
 	"sync"
 	"unsafe"
 
-	dgo "github.com/hsfzxjy/dgo/go"
-	"github.com/hsfzxjy/dgo/go/pin/pchan"
+	"github.com/hsfzxjy/dgo/go/pin/pcop"
 )
 
 type rawToken struct {
@@ -110,12 +109,12 @@ func pin_TokenDispose(version uint16, lid uint8, data uintptr) {
 }
 
 //go:linkname pin_ChanListen github.com/hsfzxjy/dgo/go.pin_ChanListen
-func pin_ChanListen(version uint16, lid uint8, data uintptr, chid uint8, dcb uint32, port *dgo.Port) {
+func pin_ChanListen(version uint16, lid uint8, data uintptr, chid uint8, dcb uint32, port unsafe.Pointer) {
 	token := untypedTokenFromRaw(uint16(version), uint8(lid), uintptr(data))
 	if token.IsEmpty() {
 		return
 	}
-	token.meta.ops <- pchan.Op{Kind: pchan.CHAN_LISTEN, Lid: lid, Chid: chid, Dcb: dcb, Port: port}
+	token.meta.ops <- pcop.Op{Kind: pcop.CHAN_LISTEN, Lid: lid, Chid: chid, Dcb: dcb, Port: port}
 }
 
 //go:linkname pin_ChanCancelListen github.com/hsfzxjy/dgo/go.pin_ChanCancelListen
@@ -124,7 +123,7 @@ func pin_ChanCancelListen(version uint16, lid uint8, data uintptr, chid uint8) {
 	if token.IsEmpty() {
 		return
 	}
-	token.meta.ops <- pchan.Op{Kind: pchan.CHAN_CANCEL_LISTEN, Lid: lid, Chid: chid}
+	token.meta.ops <- pcop.Op{Kind: pcop.CHAN_CANCEL_LISTEN, Lid: lid, Chid: chid}
 }
 
 var _ = pin_ChanCancelListen

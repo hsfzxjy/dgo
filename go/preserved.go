@@ -1,6 +1,10 @@
 package dgo
 
-import _ "unsafe"
+import (
+	"unsafe"
+
+	_ "github.com/hsfzxjy/dgo/go/pin"
+)
 
 type _PreservedGoCall struct {
 	kind uint64
@@ -30,7 +34,7 @@ func (c _PreservedGoCall) handleCObjects(objs []*Dart_CObject) {
 		version, lid, data := parseUntypedToken(objs)
 		chid := uint8(cobjectParseInt(objs[3]))
 		dcb := uint32(cobjectParseInt(objs[4]))
-		pin_ChanListen(version, lid, data, chid, dcb, c.port)
+		pin_ChanListen(version, lid, data, chid, dcb, unsafe.Pointer(c.port))
 	case pgcChanCancelListen:
 		version, lid, data := parseUntypedToken(objs)
 		chid := uint8(cobjectParseInt(objs[3]))
@@ -39,5 +43,5 @@ func (c _PreservedGoCall) handleCObjects(objs []*Dart_CObject) {
 }
 
 func pin_TokenDispose(version uint16, lid uint8, data uintptr)
-func pin_ChanListen(version uint16, lid uint8, data uintptr, chid uint8, dcb uint32, port *Port)
+func pin_ChanListen(version uint16, lid uint8, data uintptr, chid uint8, dcb uint32, port unsafe.Pointer)
 func pin_ChanCancelListen(version uint16, lid uint8, data uintptr, chid uint8)
