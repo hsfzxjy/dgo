@@ -70,20 +70,20 @@ func GoSizeof(t Term) int {
 	if t == nil {
 		return 0
 	}
-	return t.getHeader().GoSize
+	return t.GetHeader().GoSize
 }
 func IsGoSizeDynamic(t Term) bool { return GoSizeof(t) == DYNSIZE }
 func DartSizeof(t Term) int {
 	if t == nil {
 		return 0
 	}
-	return t.getHeader().DartSize
+	return t.GetHeader().DartSize
 }
 func IsDartSizeDynamic(t Term) bool { return DartSizeof(t) == DYNSIZE }
 
 func FillAllSize(t Term) {
 	fillSize(t, func(t Term) *int {
-		return &t.getHeader().GoSize
+		return &t.GetHeader().GoSize
 	}, func(t Term) bool {
 		if t, ok := t.(*Field); ok {
 			return !t.SendBackToGo
@@ -91,7 +91,7 @@ func FillAllSize(t Term) {
 		return false
 	})
 	fillSize(t, func(t Term) *int {
-		return &t.getHeader().DartSize
+		return &t.GetHeader().DartSize
 	}, func(t Term) bool {
 		if t, ok := t.(*Field); ok {
 			return !t.SendToDart

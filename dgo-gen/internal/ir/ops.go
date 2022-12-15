@@ -15,13 +15,15 @@ type Ident struct {
 
 type termHeader struct {
 	OpName   string `json:"Op"`
+	Abbr     byte   `json:"-"`
 	DartSize int
 	GoSize   int
 }
 
-func (h *termHeader) getHeader() *termHeader { return h }
-func (h *termHeader) initHeader(name string) {
+func (h *termHeader) GetHeader() *termHeader { return h }
+func (h *termHeader) initHeader(name string, abbr byte) {
 	h.OpName = name
+	h.Abbr = abbr
 	h.DartSize = -1
 	h.GoSize = -1
 }
@@ -46,7 +48,7 @@ type Slice struct {
 
 func NewSlice() *Slice {
 	t := &Slice{}
-	t.initHeader("Slice")
+	t.initHeader("Slice", 's')
 	return t
 }
 
@@ -67,7 +69,7 @@ type Map struct {
 
 func NewMap() *Map {
 	t := &Map{}
-	t.initHeader("Map")
+	t.initHeader("Map", 'm')
 	return t
 }
 
@@ -95,7 +97,7 @@ type Array struct {
 
 func NewArray(length int) *Array {
 	t := &Array{Len: length}
-	t.initHeader("Array")
+	t.initHeader("Array", 'a')
 	return t
 }
 
@@ -117,7 +119,7 @@ type Basic struct {
 
 func NewBasic(typ *types.Basic) *Basic {
 	t := &Basic{TypeKind: typ.Kind(), TypeInfo: typ.Info(), TypeName: typ.Name()}
-	t.initHeader("Basic")
+	t.initHeader("Basic", 'b')
 	return t
 }
 
@@ -136,7 +138,7 @@ type Coerce struct {
 
 func NewCoerce(obj types.Object, uri uri.Uri) *Coerce {
 	t := &Coerce{Ident: NewIdent(obj.Pkg(), obj.Name(), uri)}
-	t.initHeader("Coerce")
+	t.initHeader("Coerce", 'c')
 	return t
 }
 
@@ -155,7 +157,7 @@ type PtrTo struct {
 
 func NewPtrTo() *PtrTo {
 	t := &PtrTo{}
-	t.initHeader("PtrTo")
+	t.initHeader("PtrTo", 'p')
 	return t
 }
 
@@ -200,7 +202,7 @@ type Field struct {
 
 func NewField(name string, directives *FieldDirectives) *Field {
 	t := &Field{Name: name, FieldDirectives: directives}
-	t.initHeader("Field")
+	t.initHeader("Field", 'f')
 	return t
 }
 
@@ -227,7 +229,7 @@ type Struct struct {
 
 func NewStruct() *Struct {
 	t := &Struct{Fields: []*Field{}}
-	t.initHeader("Struct")
+	t.initHeader("Struct", 'S')
 	return t
 }
 
@@ -256,7 +258,7 @@ type Optional struct {
 
 func NewOptional() *Optional {
 	o := &Optional{}
-	o.initHeader("Optional")
+	o.initHeader("Optional", 'o')
 	return o
 }
 
@@ -274,7 +276,7 @@ type PinToken struct {
 
 func NewPinToken() *PinToken {
 	t := &PinToken{}
-	t.initHeader("PinToken")
+	t.initHeader("PinToken", 't')
 	return t
 }
 

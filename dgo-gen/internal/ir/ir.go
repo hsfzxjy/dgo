@@ -11,7 +11,7 @@ func (v visitor) Call(term Term) {
 type Term interface {
 	Traverse(visitPre, visitPost visitor)
 	AddChild(Term)
-	getHeader() *termHeader
+	GetHeader() *termHeader
 }
 
 type Elem = Term

@@ -257,19 +257,29 @@ func (r *typeSolver) pop() {
 	}
 }
 
-func (r *typeSolver) isRootLevelStruct() bool {
-	var n = len(r.layers) - 1
-	var lterm ir.Term = r.layers[n].term
-	if _, ok := lterm.(*ir.Struct); !ok {
-		return false
-	}
-	for i := n - 1; i >= 0; i-- {
-		term := r.layers[i].term
-		if _, ok := term.(*ir.Struct); ok && term != lterm {
-			return false
+func (r *typeSolver) matchPattern(pat *regexp.Regexp) bool {
+	buf := bytes.Buffer{}
+	var prev ir.Term
+	for _, l := range r.layers {
+		t := l.term
+		if t == prev {
+			continue
 		}
+		buf.WriteByte(t.GetHeader().Abbr)
+		prev = t
 	}
-	return true
+	return pat.Match(buf.Bytes())
+}
+
+func (r *typeSolver) isChanAllowedHere() bool {
+	if r.matchPattern(regexp.MustCompile("^(.*[^c]|)Sf$")) {
+		return r.config.IsPinnable
+	}
+	return r.matchPattern(regexp.MustCompile("^.*cSf$"))
+}
+
+func (r *typeSolver) isRootLevelStruct() bool {
+	return r.matchPattern(regexp.MustCompile("^[^S]*S$"))
 }
 
 func (r *typeSolver) isTypeNamed() bool {
