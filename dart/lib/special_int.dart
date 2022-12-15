@@ -10,7 +10,7 @@ enum _SpecialIntKind {
   dartCallbackGroup(6),
   prevseredGoCall(7);
 
-  const _SpecialIntKind(this.value);
+  const _SpecialIntKind(this.value) : assert(value >= 0 && value <= 7);
   factory _SpecialIntKind.fromInt(int value) {
     return _SpecialIntKind.values[value];
   }
