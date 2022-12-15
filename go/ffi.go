@@ -152,6 +152,27 @@ func (dcb CallableDartCallback) Call(args ...any) bool {
 	return port.postCObjects(cobjs[:n+1], args, true)
 }
 
+func (dcb CallableDartCallback) callRaw(args []Dart_CObject) bool {
+	var head [1]Dart_CObject
+	head[0].Type = Dart_CObject_kInt64
+	*(*C.int64_t)(unsafe.Pointer(&head[0].Value)) = C.int64_t(dcb.serialize())
+	return dcb.port.postCObjects2(head[:], args, nil, false)
+}
+
+/* dartCallbackGroup Methods */
+
+func (g dartCallbackGroup) callRaw(args []Dart_CObject) bool {
+	head := make([]Dart_CObject, 1+len(g))
+	head[0].Type = Dart_CObject_kInt64
+	*(*C.int64_t)(unsafe.Pointer(&head[0].Value)) = C.int64_t(g.serialize())
+	for i, dcb := range g {
+		s := math.Float64frombits(dcb.serialize())
+		head[i+1].Type = Dart_CObject_kDouble
+		*(*C.double)(unsafe.Pointer(&head[i+1].Value)) = C.double(s)
+	}
+	return g[0].port.postCObjects2(head, args, nil, false)
+}
+
 /* EXPORTS */
 
 var apiDLOnce sync.Once

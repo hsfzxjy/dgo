@@ -9,6 +9,7 @@ const (
 	sikGoMethod
 	sikDartFutureCallback
 	sikDartStreamCallback
+	sikDartCallbackGroup
 )
 
 const (
