@@ -172,6 +172,10 @@ type FieldDirectives struct {
 	SendToDart   bool
 	SendBackToGo bool
 	RenameInDart string
+
+	Broadcast        bool
+	BlockUntilListen bool
+	Memorized        bool
 }
 
 func ParseFieldDirectives(spec string) *FieldDirectives {
@@ -186,6 +190,12 @@ func ParseFieldDirectives(spec string) *FieldDirectives {
 				d.SendBackToGo = false
 			case "!go":
 				d.SendBackToGo = false
+			case "broadcast":
+				d.Broadcast = true
+			case "block":
+				d.BlockUntilListen = true
+			case "memo":
+				d.Memorized = true
 			}
 		}
 	}
@@ -224,11 +234,13 @@ func (f *Field) Traverse(visitPre, visitPost visitor) {
 type Struct struct {
 	termHeader
 	termIdent
+	Nchans int
 	Fields []*Field
+	Chans  []*Field
 }
 
 func NewStruct() *Struct {
-	t := &Struct{Fields: []*Field{}}
+	t := &Struct{Fields: []*Field{}, Chans: []*Field{}}
 	t.initHeader("Struct", 'S')
 	return t
 }
@@ -284,5 +296,24 @@ func (x *PinToken) AddChild(t Term) { x.Term = t }
 func (x *PinToken) Traverse(visitPre, visitPost visitor) {
 	visitPre.Call(x)
 	x.Term.Traverse(visitPre, visitPost)
+	visitPost.Call(x)
+}
+
+type Chan struct {
+	termHeader
+	Chid uint8
+	Elem Term
+}
+
+func NewChan() *Chan {
+	t := &Chan{}
+	t.initHeader("Chan", 'c')
+	return t
+}
+
+func (x *Chan) AddChild(t Term) { x.Elem = t }
+func (x *Chan) Traverse(visitPre, visitPost visitor) {
+	visitPre.Call(x)
+	x.Elem.Traverse(visitPre, visitPost)
 	visitPost.Call(x)
 }

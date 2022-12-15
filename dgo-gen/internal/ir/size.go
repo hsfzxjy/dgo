@@ -26,6 +26,12 @@ func fillSize(t Term, getSize func(Term) *int, skip func(Term) bool) {
 			cntSize++
 		}
 		push(isdynamic(false))
+
+		if s, ok := t.(*Struct); ok {
+			for _, c := range s.Chans {
+				FillAllSize(c)
+			}
+		}
 	}, func(t Term) {
 		baseSize := getSize(t)
 		if skip(t) {
@@ -54,9 +60,9 @@ func fillSize(t Term, getSize func(Term) *int, skip func(Term) bool) {
 			*top() = isdynamic(true)
 		case *PinToken:
 			switch baseSize {
-			case &t.getHeader().DartSize:
+			case &t.GetHeader().DartSize:
 				cntSize += 3
-			case &t.getHeader().GoSize:
+			case &t.GetHeader().GoSize:
 				cntSize = *baseSize + 3
 			}
 		}

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	. "github.com/dave/jennifer/jen"
@@ -15,6 +16,7 @@ import (
 )
 
 const dgoMod = "github.com/hsfzxjy/dgo/go"
+const pchanMod = dgoMod + "/pin/pchan"
 const cgoPreamble = "#include <stdint.h>\n#include <stdbool.h>"
 
 func typeNameOf(etype *exported.Type, term ir.Term) *Statement {
@@ -481,13 +483,34 @@ func buildFunction_method(etype *exported.Type, method exported.TypeMethod, g *G
 		g.Id("callback").Op("|=").Uint64().Call(Qual(dgoMod, "CF_PACKARRAY"))
 	}
 
-	g.Var().Id("o").Id(etype.Name())
-	g.Id("_index_").
-		Op("=").
-		Id("o").Dot("DgoLoad").
-		Call(
-			Id("arr"),
-			Id("_index_"))
+	g.Var().Id("o").Op("*").Id(etype.Name())
+	if etype.IsPinnable {
+		g.If(Id("flag").Dot("IsPinned").Call()).BlockFunc(func(g *Group) {
+			g.Var().Id("version").Uint16()
+			g.Var().Id("lid").Uint8()
+			g.Var().Id("data").Uintptr()
+			loadIntoInt(g, arrIndex(), Id("version"), Uint16())
+			loadIntoInt(g, arrIndex(), Id("lid"), Uint8())
+			loadIntoInt(g, arrIndex(), Id("data"), Uintptr())
+			g.Op("token").Op(":=").
+				Parens(pinToken(Id(etype.Name()))).
+				Parens(
+					Id("pin_untypedTokenFromRaw").
+						Call(Id("version"), Id("lid"), Id("data")),
+				)
+			g.Id("o").Op("=").Id("token").Dot("Data").Call()
+		}).Else()
+	}
+	g.Block(
+		Var().Op("oo").Id(etype.Name()),
+		Id("_index_").
+			Op("=").
+			Id("oo").Dot("DgoLoad").
+			Call(
+				Id("arr"),
+				Id("_index_")),
+		Id("o").Op("=&").Id("oo"),
+	)
 
 	for paramId, param := range method.Params {
 		paramName := fmt.Sprintf("arg%d", paramId)
@@ -672,6 +695,155 @@ func buildFunction_DgoDartSize(etype *exported.Type, term ir.Term, g *Group, loo
 	}
 }
 
+func buildFunction_chanworker(etype *exported.Type, g *Group) {
+	irStruct := etype.Term.(*ir.Struct)
+	nchans := irStruct.Nchans
+	g.Id("man").Op(":=").Qual(pchanMod, "NewManager").Call(Lit(nchans))
+	g.Var().Id("dcbs").Index().Qual(dgoMod, "CallableDartCallback")
+
+	g.Var().Id("_index_").Int()
+	g.Var().Id("size").Int()
+	g.Id("_").Op("=").Id("size")
+	g.Var().Id("arr").Index().Qual(dgoMod, "Dart_CObject")
+	g.Var().Id("keepAlive").Index().Any()
+	g.Id("_").Op("=").Id("keepAlive")
+	g.Var().Id("cobj").Op("*").Qual(dgoMod, "Dart_CObject")
+	g.Line()
+
+	chans := make([]struct {
+		field      *ir.Field
+		directives *ir.FieldDirectives
+		term       *ir.Chan
+		names      struct {
+			Var      string
+			Args     string
+			Memo     string
+			MemoFlag string
+		}
+	}, nchans)
+	for i, f := range irStruct.Chans {
+		c := f.Term.(*ir.Chan)
+		e := c.Elem
+		chidStr := strconv.Itoa(int(c.Chid))
+		nameVar := "c_" + chidStr
+		nameArgs := "args_" + chidStr
+		nameMemo := "memo_" + chidStr
+		nameMemoFlag := "mflag_" + chidStr
+		chans[i].field = f
+		chans[i].directives = f.FieldDirectives
+		chans[i].term = c
+		chans[i].names.Var = nameVar
+		chans[i].names.Args = nameArgs
+		chans[i].names.Memo = nameMemo
+		chans[i].names.MemoFlag = nameMemoFlag
+		g.Id(nameVar).Op(":=").Id("o").Dot(f.Name)
+		if f.BlockUntilListen {
+			g.Id(nameVar).Op("=").Nil()
+		}
+
+		if f.Memorized {
+			g.Var().Id(nameMemoFlag).Bool()
+			g.Var().Id(nameMemo).Index().Qual(dgoMod, "Dart_CObject")
+		}
+
+		if !ir.IsDartSizeDynamic(e) {
+			g.Var().Id(nameArgs).Index(Lit(ir.DartSizeof(e))).Qual(dgoMod, "Dart_CObject")
+		}
+		g.Line()
+	}
+
+	g.Op("SELECT:")
+	g.Select().BlockFunc(func(g *Group) {
+		for _, ch := range chans {
+			g.Case(List(Id("v"), Id("ok")).Op(":=<-").Id(ch.names.Var))
+			g.If(Op("!").Id("ok")).Block(
+				Id(ch.names.Var).Op("=").Nil(),
+				Id("samePort").Op(":=").Id("man").Dot("GetLids").Call(
+					True(), Lit(ch.term.Chid), Op("&").Id("dcbs")),
+				Id("dgoCallbackGroupCall").Call(
+					Id("dcbs"), Id("samePort"), Nil()),
+				Goto().Id("SELECT"),
+			)
+			if ir.IsDartSizeDynamic(ch.term) {
+				g.Id("size").Op("=").Lit(0)
+				g.BlockFunc(func(g *Group) {
+					g.Id("o").Op(":=&").Id("v")
+					buildFunction_DgoDartSize(etype, ch.term.Elem, g, new(looper))
+				})
+				g.Id("arr").Op("=").Make(Index().Qual(dgoMod, "Dart_CObject"), Id("size"))
+			} else {
+				g.Id("arr").Op("=").Id(ch.names.Args).Index(Empty(), Empty())
+			}
+			g.Id("_index_").Op("=").Lit(0)
+			g.Comment(" build result")
+			g.Id("o").Op(":=").Op("&").Id("v")
+			buildFunction_DgoStore(etype, ch.term.Elem, g, &looper{})
+			g.Comment(" post result")
+			g.Id("samePort").Op(":=").Id("man").Dot("GetLids").Call(
+				False(), Lit(ch.term.Chid), Op("&").Id("dcbs"))
+			g.Id("dgoCallbackGroupCall").Call(
+				Id("dcbs"), Id("samePort"), Id("arr").Index(Empty(), Id("_index_")))
+			if ch.directives.Memorized {
+				g.Id(ch.names.MemoFlag).Op("=").True()
+				g.Id(ch.names.Memo).Op("=").Id("arr").Index(Empty(), Id("_index_"))
+			}
+		}
+
+		g.Case(Id("op").Op(":=<-").Id("ops"))
+		g.Id("result").Op(":=").Id("man").Dot("Handle").Call(Id("op"))
+		g.Switch(Id("op").Dot("Kind")).BlockFunc(func(g *Group) {
+			g.Case(Qual(pchanMod, "META_DETACHED"))
+			g.Id("man").Dot("Recycle").Call()
+			g.Qual(pchanMod, "RecycleOpChan").Call(Id("ops"))
+			g.Return()
+
+			g.Case(Qual(pchanMod, "CHAN_LISTEN"))
+			g.Var().Id("dcbs").Index(Lit(1)).Qual(dgoMod, "CallableDartCallback")
+			g.Var().Id("dcb").Op("=").Id("op").Dot("AsDartCallback").Call()
+			g.Var().Id("flag").Op("=").
+				Qual(dgoMod, "CF").
+				Dot("Fallible").Call().
+				Dot("WithContext").Call().
+				Dot("PackArray").Call()
+			g.If(Op("!").Id("result")).Block(
+				Id("dcbs").Index(Lit(0)).Op("=").
+					Id("dcb").Dot("Flag").Call(Id("flag").Dot("Pop").Call()),
+				Id("dgoCallbackGroupCall").Call(
+					Id("dcbs").Index(Empty(), Empty()),
+					True(), Nil(),
+				),
+				Goto().Id("SELECT"),
+			)
+			g.Switch(Id("op").Dot("Chid")).BlockFunc(func(g *Group) {
+				for _, ch := range chans {
+					g.Case(Lit(ch.term.Chid))
+					if ch.directives.BlockUntilListen {
+						g.Id(ch.names.Var).Op("=").Id("o").Dot(ch.field.Name)
+					}
+					if ch.directives.Memorized {
+						g.If(Id(ch.names.MemoFlag)).Block(
+							Id("dcbs").Index(Lit(0)).Op("=").
+								Id("dcb").Dot("Flag").Call(Id("flag")),
+							Id("dgoCallbackGroupCall").Call(
+								Id("dcbs").Index(Empty(), Empty()),
+								True(), Id(ch.names.Memo),
+							),
+						)
+					}
+				}
+			})
+		})
+	})
+	g.Comment(" cleanup")
+	g.Id("arr").Op("=").Nil()
+	g.Id("_index_").Op("=").Lit(0)
+	g.Id("keepAlive").Op("=").Nil()
+	g.Id("cobj").Op("=").Nil()
+	g.Id("size").Op("=").Lit(0)
+	g.Id("dcbs").Op("=").Id("dcbs").Index(Empty(), Lit(0))
+	g.Goto().Id("SELECT")
+}
+
 type Generator struct {
 	files map[string]*File
 }
@@ -684,6 +856,7 @@ func (d *Generator) buildFunctionsForType(etype *exported.Type, file *File) {
 		Line()
 
 	if etype.IsPinnable {
+		irStruct := etype.Term.(*ir.Struct)
 		file.Func().
 			Params(Id("o").Op("*").Id(name)).
 			Id("NewToken").
@@ -700,7 +873,31 @@ func (d *Generator) buildFunctionsForType(etype *exported.Type, file *File) {
 				Return(Parens(pinToken(typeName)).
 					Parens(Id("pin_metaNewToken").Call(
 						Op("&").Id("o").Dot("Meta"))),
-				))
+				)).
+			Line()
+
+		file.Func().
+			Params(Id("o").Op("*").Id(name)).
+			Id("Pin").
+			Params().
+			Bool().
+			Block(Return(Id("pin_metaPin").Call(
+				Op("&").Id("o").Dot("Meta"),
+				Lit(irStruct.Nchans),
+				Id("o").Dot("dgo_chanworker"),
+			))).
+			Line()
+
+		if len(irStruct.Chans) > 0 {
+			file.Func().
+				Params(Id("o").Op("*").Id(name)).
+				Id("dgo_chanworker").
+				Params(Id("ops").Chan().Qual(pchanMod, "Op")).
+				BlockFunc(func(g *Group) {
+					buildFunction_chanworker(etype, g)
+				}).
+				Line()
+		}
 	}
 
 	file.Func().
@@ -748,6 +945,7 @@ func (d *Generator) buildFunctionsForType(etype *exported.Type, file *File) {
 			Id(implName).
 			Params(
 				Id("port").Op("*").Qual(dgoMod, "Port"),
+				Id("flag").Qual(dgoMod, "MethodCallFlag"),
 				Id("arr").Index().Op("*").Qual(dgoMod, "Dart_CObject")).
 			BlockFunc(func(g *Group) {
 				buildFunction_method(etype, method, g)
@@ -785,8 +983,19 @@ func (d *Generator) buildStub(dstDir string, pkgName string) {
 		Line().
 		Comment("//go:linkname dgoPostCObjects github.com/hsfzxjy/dgo/go.dgo__PostCObjects").
 		Line().
+		Comment("//go:noescape").
+		Line().
 		Func().Id("dgoPostCObjects").
 		Params(Op("*").Qual(dgoMod, "Port"), Int(), Op("*").Qual(dgoMod, "Dart_CObject")).
+		Line().
+		Line().
+		Comment("//go:linkname dgoCallbackGroupCall github.com/hsfzxjy/dgo/go.callbackGroupCall").
+		Line().
+		Comment("//go:noescape").
+		Line().
+		Func().Id("dgoCallbackGroupCall").
+		Params(Index().Qual(dgoMod, "CallableDartCallback"), Bool(), Index().Qual(dgoMod, "Dart_CObject")).
+		Bool().
 		Line().
 		Line().
 		Var().Id("_").Qual("unsafe", "Pointer")
@@ -800,6 +1009,16 @@ func (d *Generator) buildStub(dstDir string, pkgName string) {
 		Func().Id("pin_metaNewToken").
 		Params(Id("meta").Op("*").Qual(dgoMod+"/pin", "Meta")).
 		Add(untypedPinToken()).
+		Line().
+		Line().
+		Comment("//go:linkname pin_metaPin github.com/hsfzxjy/dgo/go/pin.metaPin").
+		Line().
+		Func().Id("pin_metaPin").
+		Params(
+			Id("meta").Op("*").Qual(dgoMod+"/pin", "Meta"),
+			Id("nchans").Uint8(),
+			Id("workerfn").Func().Call(Chan().Qual(dgoMod+"/pin/pchan", "Op"))).
+		Add(Bool()).
 		Line().
 		Line().
 		Comment("//go:linkname pin_untypedTokenFromRaw github.com/hsfzxjy/dgo/go/pin.untypedTokenFromRaw").

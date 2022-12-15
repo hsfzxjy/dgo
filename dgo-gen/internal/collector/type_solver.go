@@ -1,9 +1,11 @@
 package collector
 
 import (
+	"bytes"
 	"fmt"
 	"go/types"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/hsfzxjy/dgo/dgo-gen/internal/ir"
@@ -129,6 +131,17 @@ SWITCH:
 		defer r.pop()
 		ityp = ityp.Underlying()
 		goto SWITCH
+	case *types.Chan:
+		if !r.isChanAllowedHere() {
+			r.throwAt(obj, "chan type is not exportable")
+		}
+		if typ.Dir() == types.SendOnly {
+			r.throwAt(obj, "send-only chan type is not exportable")
+		}
+		r.push(tlkElem, ityp, ir.NewChan())
+		defer r.pop()
+		ityp = typ.Elem()
+		goto SWITCH
 	case *types.Struct:
 		if !r.isTypeNamed() {
 			r.throwAt(obj, "anonymous type is not exportable")
@@ -181,6 +194,14 @@ SWITCH:
 				fieldName = field.Name()
 			r.Do(field, nil)
 			r.pop()
+
+			nFields := len(irStruct.Fields)
+			if c, ok := irField.Term.(*ir.Chan); ok {
+				irStruct.Fields = irStruct.Fields[:nFields-1]
+				irStruct.Chans = append(irStruct.Chans, irField)
+				c.Chid = uint8(irStruct.Nchans)
+				irStruct.Nchans++
+			}
 		}
 		return
 	default:
