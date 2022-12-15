@@ -23,6 +23,7 @@ part 'invoke_context.dart';
 part 'utils.dart';
 part 'math_utils.dart';
 part 'pin.dart';
+part 'preserved_go_call.dart';
 
 class _Dgo extends DgoPortLike with _PortMixin {
   DgoPort? _defaultPort;

@@ -7,7 +7,8 @@ enum _SpecialIntKind {
   goMethod(3),
   dartFutureCallback(4),
   dartStreamCallback(5),
-  dartCallbackGroup(6);
+  dartCallbackGroup(6),
+  prevseredGoCall(7);
 
   const _SpecialIntKind(this.value);
   factory _SpecialIntKind.fromInt(int value) {
