@@ -55,7 +55,6 @@ class DgoPort extends DgoPortLike with _PortMixin, _CallbacksMixin {
   @override
   DgoPort get _port => this;
 
-  final binding.LibDgo _lib;
   final ReceivePort _receivePort;
   late final SendPort _sendPort;
 
@@ -76,7 +75,7 @@ class DgoPort extends DgoPortLike with _PortMixin, _CallbacksMixin {
 
     final receivePort = ReceivePort(receivePortName);
     final lib = binding.LibDgo(dylib);
-    final port = DgoPort._(receivePort, lib);
+    final port = DgoPort._(receivePort);
 
     if (isDefault) dgo._defaultPort = port;
 
@@ -95,7 +94,7 @@ class DgoPort extends DgoPortLike with _PortMixin, _CallbacksMixin {
     return port._initCompleter.future.then((_) => port);
   }
 
-  DgoPort._(this._receivePort, this._lib);
+  DgoPort._(this._receivePort);
 
   FutureOr<void> _close() {
     if (_state != DgoPortState.ready) return null;
