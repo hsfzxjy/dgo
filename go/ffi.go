@@ -71,6 +71,10 @@ func (p *Port) postCObject(obj *Dart_CObject, raises bool) bool {
 }
 
 func (p *Port) postCObjects(objs []Dart_CObject, keepAlive any, raises bool) bool {
+	var pobjs *Dart_CObject
+	if len(objs) != 0 {
+		pobjs = &objs[0]
+	}
 	ret := bool(C.dgo__PostCObjects(
 		C.Dart_Port_DL(p.sendPortKey),
 		C.int(len(objs)),
