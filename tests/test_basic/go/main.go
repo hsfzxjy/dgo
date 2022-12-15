@@ -8,6 +8,7 @@ import (
 	"log"
 
 	dgo "github.com/hsfzxjy/dgo/go"
+	_ "github.com/hsfzxjy/dgo/go/pin"
 )
 
 func main() {}
