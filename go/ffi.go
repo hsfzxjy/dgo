@@ -259,7 +259,7 @@ BAD_FIRST_ARGUMENT:
 
 const MAX_ARRAY_LEN = 1<<30 - 1
 
-/* Dart_COBject Parsing & Serializing */
+/* Dart_CObject Parsing & Serializing */
 
 func cobjectParseInt(cobj *Dart_CObject) int64 {
 	pValue := unsafe.Pointer(&cobj.Value)
