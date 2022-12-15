@@ -10,6 +10,7 @@ const (
 	sikDartFutureCallback
 	sikDartStreamCallback
 	sikDartCallbackGroup
+	sikPreservedGoCall
 )
 
 const (
@@ -50,6 +51,8 @@ func _buildHandlable(kind _SpecialIntKind, port *Port, payload uint64) _Handlabl
 		return invokingGoCallback{payload, port}
 	case sikGoMethod:
 		return invokingGoMethod{payload, port}
+	case sikPreservedGoCall:
+		return _PreservedGoCall{payload, port}
 	default:
 		panic("unreachable")
 	}
