@@ -15,6 +15,8 @@ ALL_HSRC = $(shell bash -O globstar -c 'echo go/**/*.h')
 BUILD_DIR = $(abspath ./build)
 WORK_DIR = $(abspath .)
 
+FAST = $(if $(fast),true,false)
+
 build/include/go.h: $(GOSRC) $(ALL_HSRC)
 	rm build -rf
 	mkdir build/include/ -p
@@ -63,7 +65,7 @@ define integration_test
 	cd $(WORK_DIR)/tests/$1/go; \
 	make; \
 	cd ../dart; \
-	dart run test --reporter=expanded --debug --chain-stack-traces
+	dart run test --reporter=expanded --debug --chain-stack-traces -j 1
 endef
 
 .PHONY: test_basic
@@ -75,8 +77,10 @@ tidy_dart = (cd $(WORK_DIR)/$1; dart run import_sorter:main; dart fix --apply; d
 
 .PHONY: test_gen
 test_gen:
-	if ! go run github.com/hsfzxjy/dgo/dgo-gen tests/test_gen/go -i ../_build/ir.json; then
-		exit 1
+	if ! $(FAST); then
+		if ! go run github.com/hsfzxjy/dgo/dgo-gen tests/test_gen/go -i ../_build/ir.json; then
+			exit 1
+		fi
 	fi
 	$(call integration_test,test_gen)
 
