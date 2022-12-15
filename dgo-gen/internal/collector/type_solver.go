@@ -197,7 +197,7 @@ func (r *typeSolver) printPath() string {
 	for _, a := range r.layers {
 		switch a.kind {
 		case tlkElem:
-			b.WriteString(fmt.Sprintf(",\n\t\twhose element is\n\ttype = %s", a.typ.(*types.Array).Elem()))
+			b.WriteString(fmt.Sprintf(",\n\t\twhose element is\n\ttype = %s", a.typ.(interface{ Elem() types.Type }).Elem()))
 		case tlkField:
 			b.WriteString(fmt.Sprintf(",\n\t\twhose field `.%s` is of\n\ttype = %s", a.fieldName, a.typ))
 		case tlkDeref:
