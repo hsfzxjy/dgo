@@ -17,6 +17,7 @@ import (
 
 const dgoMod = "github.com/hsfzxjy/dgo/go"
 const pchanMod = dgoMod + "/pin/pchan"
+const pcopMod = dgoMod + "/pin/pcop"
 const cgoPreamble = "#include <stdint.h>\n#include <stdbool.h>"
 
 func typeNameOf(etype *exported.Type, term ir.Term) *Statement {
@@ -792,14 +793,14 @@ func buildFunction_chanworker(etype *exported.Type, g *Group) {
 		g.Case(Id("op").Op(":=<-").Id("ops"))
 		g.Id("result").Op(":=").Id("man").Dot("Handle").Call(Id("op"))
 		g.Switch(Id("op").Dot("Kind")).BlockFunc(func(g *Group) {
-			g.Case(Qual(pchanMod, "META_DETACHED"))
+			g.Case(Qual(pcopMod, "META_DETACHED"))
 			g.Id("man").Dot("Recycle").Call()
-			g.Qual(pchanMod, "RecycleOpChan").Call(Id("ops"))
+			g.Qual(pcopMod, "RecycleOpChan").Call(Id("ops"))
 			g.Return()
 
-			g.Case(Qual(pchanMod, "CHAN_LISTEN"))
+			g.Case(Qual(pcopMod, "CHAN_LISTEN"))
 			g.Var().Id("dcbs").Index(Lit(1)).Qual(dgoMod, "CallableDartCallback")
-			g.Var().Id("dcb").Op("=").Id("op").Dot("AsDartCallback").Call()
+			g.Var().Id("dcb").Op("=").Qual(pchanMod, "AsDartCallback").Call(Id("op"))
 			g.Var().Id("flag").Op("=").
 				Qual(dgoMod, "CF").
 				Dot("Fallible").Call().
@@ -1054,6 +1055,7 @@ func (d *Generator) AddType(etype *exported.Type) {
 		if file, ok = d.files[dstPath]; !ok {
 			file = NewFile(etype.PPackage.Name)
 			file.ImportAlias(dgoMod, "dgo")
+			file.ImportAlias(pcopMod, "pcop")
 			file.CgoPreamble(cgoPreamble)
 
 			d.files[dstPath] = file
