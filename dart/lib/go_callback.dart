@@ -41,13 +41,15 @@ class CallableGoCallback implements _Serializable {
 
 @immutable
 class GoMethod implements _Serializable {
+  static const int pinned = 0x1;
   final int _funcId;
+  final int _flag;
   final DgoPort _port;
 
-  const GoMethod(this._funcId, this._port);
+  const GoMethod(this._funcId, this._flag, this._port);
 
   @override
-  int get _payload => _funcId;
+  int get _payload => _flag << 32 | _funcId;
 
   @override
   final _kind = _SpecialIntKind.goMethod;
