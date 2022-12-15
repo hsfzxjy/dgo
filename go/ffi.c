@@ -31,12 +31,23 @@ bool dgo__PostCObjects(
     Dart_Port_DL       port_id,
     int                cnt,
     dgo__Dart_CObject *cobjs) {
+  return dgo__PostCObjects2(port_id, cnt, cobjs, 0, NULL);
+}
+
+bool dgo__PostCObjects2(
+    Dart_Port_DL       port_id,
+    int                cnt1,
+    dgo__Dart_CObject *cobjs1,
+    int                cnt2,
+    dgo__Dart_CObject *cobjs2) {
 
   const int DEFAULT_ARGS_SIZE = 10;
 
   dgo__Dart_CObject   arg;
   dgo__Dart_CObject * pargs[DEFAULT_ARGS_SIZE];
   dgo__Dart_CObject **ppargs, **allocated = NULL;
+
+  int cnt = cnt1 + cnt2;
   if (cnt <= DEFAULT_ARGS_SIZE) {
     ppargs = &pargs[0];
     allocated = false;
@@ -47,10 +58,16 @@ bool dgo__PostCObjects(
   arg.Value.as_array.length = cnt;
   arg.Value.as_array.values = ppargs;
 
-  for (int i = 0; i < cnt; i++) {
-    *ppargs = &cobjs[0];
+  for (int i = 0; i < cnt1; i++) {
+    *ppargs = &cobjs1[0];
     ppargs++;
-    cobjs++;
+    cobjs1++;
+  }
+
+  for (int i = cnt1; i < cnt; i++) {
+    *ppargs = &cobjs2[0];
+    ppargs++;
+    cobjs2++;
   }
 
   Dart_PostCObject_DL(port_id, (Dart_CObject *)&arg);

@@ -66,6 +66,12 @@ typedef struct {
 void         dgo__InitFFI(void *data);
 Dart_Port_DL dgo__InitPort(Dart_Port_DL send_port_id);
 bool dgo__PostCObjects(Dart_Port_DL port_id, int cnt, dgo__Dart_CObject *cobjs);
+bool dgo__PostCObjects2(
+    Dart_Port_DL       port_id,
+    int                cnt1,
+    dgo__Dart_CObject *cobjs1,
+    int                cnt2,
+    dgo__Dart_CObject *cobjs2);
 bool dgo__PostCObject(Dart_Port_DL port_id, dgo__Dart_CObject *cobj);
 bool dgo__PostInt(Dart_Port_DL port_id, int64_t value);
 bool dgo__CloseNativePort(Dart_Port_DL port_id);
