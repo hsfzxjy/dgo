@@ -35,10 +35,16 @@ const (
 	Dart_CObject_kTypedData = C.Dart_CObject_kTypedData
 )
 
+//go:nosplit
+func noescape(p *Dart_CObject) *Dart_CObject {
+	x := uintptr(unsafe.Pointer(p))
+	return (*Dart_CObject)(unsafe.Pointer(x ^ 0))
+}
+
 type PortKey C.Dart_Port_DL
 
 func dgo__PostCObjects(port *Port, n int, arr *Dart_CObject) bool {
-	return bool(C.dgo__PostCObjects(C.Dart_Port_DL(port.sendPortKey), C.int(n), arr))
+	return bool(C.dgo__PostCObjects(C.Dart_Port_DL(port.sendPortKey), C.int(n), noescape(arr)))
 }
 
 /* Port Methods */
@@ -56,7 +62,7 @@ func (p *Port) postInt(value int64, raises bool) bool {
 }
 
 func (p *Port) postCObject(obj *Dart_CObject, raises bool) bool {
-	ret := bool(C.dgo__PostCObject(C.Dart_Port_DL(p.sendPortKey), (obj)))
+	ret := bool(C.dgo__PostCObject(C.Dart_Port_DL(p.sendPortKey), noescape(obj)))
 	runtime.KeepAlive(obj)
 	if !ret && raises {
 		p.panicPostFailure()
@@ -68,7 +74,7 @@ func (p *Port) postCObjects(objs []Dart_CObject, keepAlive any, raises bool) boo
 	ret := bool(C.dgo__PostCObjects(
 		C.Dart_Port_DL(p.sendPortKey),
 		C.int(len(objs)),
-		&objs[0]))
+		noescape(pobjs)))
 	runtime.KeepAlive(objs)
 	runtime.KeepAlive(keepAlive)
 	if !ret && raises {
