@@ -4,6 +4,7 @@ import 'dart:ffi' as ffi;
 
 // Package imports:
 import 'package:dgo/dgo.dart';
+import 'package:dgo/src/dgo.dart' show DgoPortState;
 import 'package:logging/logging.dart';
 import 'package:quiver/collection.dart';
 import 'package:test/test.dart' as t;
