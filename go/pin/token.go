@@ -1,7 +1,5 @@
 package pin
 
-//#include <stdint.h>
-import "C"
 import (
 	"sync"
 	"unsafe"
