@@ -5,7 +5,7 @@ const (
 	callbackIdMask = (uint64(1) << 32) - 1
 )
 
-type RawDartCallback interface{ ~uint32 }
+type rawDartCallback interface{ ~uint32 }
 
 type DartCallback struct {
 	id   uint64 // Id (32 bits)
@@ -14,7 +14,7 @@ type DartCallback struct {
 
 func (dcb DartCallback) specialInt() {}
 
-func WrapDartCallback[T RawDartCallback](rcb T, port *Port) DartCallback {
+func WrapDartCallback[T rawDartCallback](rcb T, port *Port) DartCallback {
 	port = portMap.ResolvePort(port)
 	return DartCallback{uint64(rcb), port}
 }
