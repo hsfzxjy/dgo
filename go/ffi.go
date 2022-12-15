@@ -34,12 +34,6 @@ const (
 	Dart_CObject_kTypedData = C.Dart_CObject_kTypedData
 )
 
-//go:nosplit
-func noescape(p *Dart_CObject) *Dart_CObject {
-	x := uintptr(unsafe.Pointer(p))
-	return (*Dart_CObject)(unsafe.Pointer(x ^ 0))
-}
-
 type PortKey C.Dart_Port_DL
 
 func dgo__PostCObjects(port *Port, n int, arr *Dart_CObject) bool {
