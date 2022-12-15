@@ -241,6 +241,18 @@ const MAX_ARRAY_LEN = 1<<30 - 1
 
 /* Dart_COBject Parsing & Serializing */
 
+func cobjectParseInt(cobj *Dart_CObject) int64 {
+	pValue := unsafe.Pointer(&cobj.Value)
+	switch cobj.Type {
+	case C.Dart_CObject_kInt32:
+		return int64(*(*C.int32_t)(pValue))
+	case C.Dart_CObject_kInt64:
+		return int64(*(*C.int64_t)(pValue))
+	default:
+		panic(fmt.Sprintf("dgo:go: cannot parse cobject into int, kind=%d", cobj.Type))
+	}
+}
+
 func cobjectParse(port *Port, cobj *Dart_CObject) any {
 	pValue := unsafe.Pointer(&cobj.Value)
 	switch cobj.Type {
