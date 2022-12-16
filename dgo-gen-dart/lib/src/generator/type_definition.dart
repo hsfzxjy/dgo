@@ -68,6 +68,7 @@ class TypeDefinition {
       ..scope({}, _build$dgoLoad)
       ..scope({}, _build$dgoStore)
       ..scope({}, _build$dgoGoSize)
+      ..if_(!isEnum, _buildEqualAndHashCode)
       ..for_(methods, (method) => method.writeSnippet())
       ..if_(
           isPinnable,
@@ -168,6 +169,32 @@ class TypeDefinition {
     ..then(ir.writeSnippet$dgoStore)
     ..sln('return $vIndex;')
     ..sln('}');
+
+  void _buildEqualAndHashCode() => ctx
+    ..sln('@\$core.override')
+    ..sln('\$core.bool operator==(\$core.Object other) {')
+    ..sln('if (other is! $entryName) return false;')
+    ..if_(
+      ir is OpStruct,
+      () => ctx
+        ..for_(
+          struct.fields.values,
+          (f) => 'if (${f.name} != other.${f.name}) return false;',
+        )
+        ..sln('return true;'),
+      else_: () => 'return \$inner == other.\$inner;',
+    )
+    ..sln('}')
+    ..sln()
+    ..sln('\$core.int get hashCode {')
+    ..sln('\$core.int code = 0;')
+    ..if_(
+      ir is OpStruct,
+      () =>
+          ctx..for_(struct.fields.values, (f) => 'code ^= ${f.name}.hashCode;'),
+      else_: () => 'code ^= \$inner.hashCode;',
+    )
+    ..sln('return code; }');
 
   void _buildPinToken() => ctx
     ..sln('class $pinTokenName extends \$dgo.PinToken<$entryName> {')
