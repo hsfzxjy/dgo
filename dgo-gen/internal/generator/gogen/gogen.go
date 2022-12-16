@@ -567,7 +567,8 @@ func buildFunction_method(etype *exported.Type, method exported.TypeMethod, g *G
 			})
 			g.Id("arr").Op(":=").Make(Index().Qual(dgoMod, "Dart_CObject"), Id("size"))
 		} else {
-			g.Var().Id("arr").Index(Lit(nExtraArgs+ir.DartSizeof(r))).Qual(dgoMod, "Dart_CObject")
+			g.Var().Id("arrArgs").Index(Lit(nExtraArgs+ir.DartSizeof(r))).Qual(dgoMod, "Dart_CObject")
+			g.Var().Id("arr").Op("=").Id("arrArgs").Index(Empty(), Empty())
 		}
 		g.BlockFunc(func(g *Group) {
 			storeFromInt(g, Id("callback"))
