@@ -162,21 +162,25 @@ func loadBasic(t *ir.Basic, g *Group, holder Code) {
 	}
 }
 
-func buildFunction_DgoLoad(etype *exported.Type, term ir.Term, g *Group, looper *looper) {
+func buildFunction_DgoLoad(etype *exported.Type, term ir.Term, g *Group, looper *looper, outer bool) {
+	if t, ok := term.(ir.HasIdent); ok && t.GetIdent() != nil && outer {
+		g.Id("_index_").Op("=").Id("o").Dot("DgoLoad").Call(Id("arr"), Id("_index_"))
+		return
+	}
 	switch t := term.(type) {
 	case *ir.Struct:
 		for _, f := range t.Fields {
 			if !f.SendBackToGo {
 				continue
 			}
-			buildFunction_DgoLoad(etype, f, g, looper)
+			buildFunction_DgoLoad(etype, f, g, looper, false)
 		}
 	case *ir.Field:
 		g.BlockFunc(func(g *Group) {
 			g.Id("o").
 				Op(":=").
 				Op("&").Id("o").Dot(t.Name)
-			buildFunction_DgoLoad(etype, t.Term, g, looper)
+			buildFunction_DgoLoad(etype, t.Term, g, looper, false)
 		})
 	case *ir.PtrTo:
 		g.Op("*").Id("o").
@@ -185,7 +189,7 @@ func buildFunction_DgoLoad(etype *exported.Type, term ir.Term, g *Group, looper 
 		g.BlockFunc(func(g *Group) {
 			g.Id("o").
 				Op(":=").Op("*").Id("o")
-			buildFunction_DgoLoad(etype, t.Elem, g, looper)
+			buildFunction_DgoLoad(etype, t.Elem, g, looper, false)
 		})
 	case *ir.Coerce:
 		g.Id("_index_").
@@ -218,7 +222,7 @@ func buildFunction_DgoLoad(etype *exported.Type, term ir.Term, g *Group, looper 
 					g.Id("o").
 						Op(":=").
 						Op("&").Id("o").Index(Looper)
-					buildFunction_DgoLoad(etype, t.Elem, g, looper)
+					buildFunction_DgoLoad(etype, t.Elem, g, looper, false)
 				})
 			looper.EndRep()
 		} else {
@@ -238,7 +242,7 @@ func buildFunction_DgoLoad(etype *exported.Type, term ir.Term, g *Group, looper 
 				g.Id("o").
 					Op(":=").
 					Op("&").Parens(Op("*").Id("o")).Index(Looper)
-				buildFunction_DgoLoad(etype, t.Elem, g, looper)
+				buildFunction_DgoLoad(etype, t.Elem, g, looper, false)
 			})
 		looper.EndRep()
 	case *ir.Map:
@@ -255,12 +259,12 @@ func buildFunction_DgoLoad(etype *exported.Type, term ir.Term, g *Group, looper 
 				Var().Id("key").Add(typeNameOf(etype, t.Key)),
 				BlockFunc(func(g *Group) {
 					g.Id("o").Op(":=&").Id("key")
-					buildFunction_DgoLoad(etype, t.Key, g, looper)
+					buildFunction_DgoLoad(etype, t.Key, g, looper, false)
 				}),
 				Var().Id("value").Add(typeNameOf(etype, t.Value)),
 				BlockFunc(func(g *Group) {
 					g.Id("o").Op(":=&").Id("value")
-					buildFunction_DgoLoad(etype, t.Value, g, looper)
+					buildFunction_DgoLoad(etype, t.Value, g, looper, false)
 				}),
 				Parens(Op("*").Id("o")).Index(Id("key")).Op("=").Id("value"),
 			)
@@ -278,7 +282,7 @@ func buildFunction_DgoLoad(etype *exported.Type, term ir.Term, g *Group, looper 
 			BlockFunc(func(g *Group) {
 				g.Id("o").Dot("SetZero").Call()
 				g.Id("o").Op(":=").Op("&").Id("o").Dot("Value")
-				buildFunction_DgoLoad(etype, t.Term, g, looper)
+				buildFunction_DgoLoad(etype, t.Term, g, looper, false)
 			})
 	case *ir.PinToken:
 		g.BlockFunc(func(g *Group) {
@@ -364,25 +368,29 @@ func storeBasic(t *ir.Basic, g *Group, holder Code) {
 	}
 }
 
-func buildFunction_DgoStore(etype *exported.Type, term ir.Term, g *Group, looper *looper) {
+func buildFunction_DgoStore(etype *exported.Type, term ir.Term, g *Group, looper *looper, outer bool) {
+	if t, ok := term.(ir.HasIdent); ok && t.GetIdent() != nil && outer {
+		g.Id("_index_").Op("=").Id("o").Dot("DgoStore").Call(Id("arr"), Id("_index_"), Id("keepAlive"))
+		return
+	}
 	switch t := term.(type) {
 	case *ir.Struct:
 		for _, f := range t.Fields {
 			if !f.SendToDart {
 				continue
 			}
-			buildFunction_DgoStore(etype, f, g, looper)
+			buildFunction_DgoStore(etype, f, g, looper, false)
 		}
 	case *ir.Field:
 		g.BlockFunc(func(g *Group) {
 			g.Id("o").Op(":=").Op("&").Id("o").Dot(t.Name)
-			buildFunction_DgoStore(etype, t.Term, g, looper)
+			buildFunction_DgoStore(etype, t.Term, g, looper, false)
 		})
 	case *ir.PtrTo:
 		g.Op("*").Id("o").Op("=").New(typeNameOf(etype, t.Elem))
 		g.BlockFunc(func(g *Group) {
 			g.Id("o").Op(":=").Op("*").Id("o")
-			buildFunction_DgoStore(etype, t.Elem, g, looper)
+			buildFunction_DgoStore(etype, t.Elem, g, looper, false)
 		})
 	case *ir.Coerce:
 		g.Id("_index_").
@@ -404,7 +412,7 @@ func buildFunction_DgoStore(etype *exported.Type, term ir.Term, g *Group, looper
 					Looper.Clone().Op("++")).
 				BlockFunc(func(g *Group) {
 					g.Add(Id("o").Op(":=").Op("&").Id("o").Index(Looper))
-					buildFunction_DgoStore(etype, t.Elem, g, looper)
+					buildFunction_DgoStore(etype, t.Elem, g, looper, false)
 				})
 			looper.EndRep()
 		} else {
@@ -423,7 +431,7 @@ func buildFunction_DgoStore(etype *exported.Type, term ir.Term, g *Group, looper
 				Looper.Clone().Op("++")).
 			BlockFunc(func(g *Group) {
 				g.Add(Id("o").Op(":=").Op("&").Parens(Op("*").Id("o")).Index(Looper))
-				buildFunction_DgoStore(etype, t.Elem, g, looper)
+				buildFunction_DgoStore(etype, t.Elem, g, looper, false)
 			})
 		looper.EndRep()
 	case *ir.Map:
@@ -437,11 +445,11 @@ func buildFunction_DgoStore(etype *exported.Type, term ir.Term, g *Group, looper
 			Block(
 				BlockFunc(func(g *Group) {
 					g.Add(Id("o").Op(":=").Op("&").Id("key"))
-					buildFunction_DgoStore(etype, t.Key, g, looper)
+					buildFunction_DgoStore(etype, t.Key, g, looper, false)
 				}),
 				BlockFunc(func(g *Group) {
 					g.Add(Id("o").Op(":=").Op("&").Add(Looper))
-					buildFunction_DgoStore(etype, t.Value, g, looper)
+					buildFunction_DgoStore(etype, t.Value, g, looper, false)
 				}),
 			)
 		looper.EndRep()
@@ -457,7 +465,7 @@ func buildFunction_DgoStore(etype *exported.Type, term ir.Term, g *Group, looper
 			Else().
 			BlockFunc(func(g *Group) {
 				g.Id("o").Op(":=").Op("&").Id("o").Dot("Value")
-				buildFunction_DgoStore(etype, t.Term, g, looper)
+				buildFunction_DgoStore(etype, t.Term, g, looper, false)
 			})
 	case *ir.PinToken:
 		g.BlockFunc(func(g *Group) {
@@ -468,7 +476,7 @@ func buildFunction_DgoStore(etype *exported.Type, term ir.Term, g *Group, looper
 			storeFromInt(g, Id("lid"))
 			storeFromInt(g, Id("data"))
 			g.Id("o").Op(":=").Id("o").Dot("Data").Call()
-			buildFunction_DgoStore(etype, t.Term, g, looper)
+			buildFunction_DgoStore(etype, t.Term, g, looper, false)
 		})
 		g.Id("pin_untypedTokenLeak").Call(Id("pin_untypedToken").Call(Op("*o")))
 	}
@@ -520,7 +528,7 @@ func buildFunction_method(etype *exported.Type, method exported.TypeMethod, g *G
 		g.Var().Id(paramName).Add(typeNameOf(etype, param.Term))
 		g.BlockFunc(func(g *Group) {
 			g.Id("o").Op(":=").Op("&").Id(paramName)
-			buildFunction_DgoLoad(etype, param.Term, g, &looper{})
+			buildFunction_DgoLoad(etype, param.Term, g, &looper{}, true)
 		})
 	}
 
@@ -581,7 +589,7 @@ func buildFunction_method(etype *exported.Type, method exported.TypeMethod, g *G
 
 	storeResult := func(g *Group) {
 		g.Id("o").Op(":=").Op("&").Id("result")
-		buildFunction_DgoStore(etype, method.Return, g, &looper{})
+		buildFunction_DgoStore(etype, method.Return, g, &looper{}, true)
 	}
 
 	g.BlockFunc(func(g *Group) {
@@ -781,7 +789,7 @@ func buildFunction_chanworker(etype *exported.Type, g *Group) {
 			g.Id("_index_").Op("=").Lit(0)
 			g.Comment(" build result")
 			g.Id("o").Op(":=").Op("&").Id("v")
-			buildFunction_DgoStore(etype, ch.term.Elem, g, &looper{})
+			buildFunction_DgoStore(etype, ch.term.Elem, g, &looper{}, true)
 			g.Comment(" post result")
 			g.Id("samePort").Op(":=").Id("man").Dot("GetLids").Call(
 				False(), Lit(ch.term.Chid), Op("&").Id("dcbs"))
@@ -923,7 +931,7 @@ func (d *Generator) buildFunctionsForType(etype *exported.Type, file *File) {
 			Id("_index_").Int()).
 		Id("int").
 		BlockFunc(func(g *Group) {
-			buildFunction_DgoLoad(etype, etype.Term, g, new(looper))
+			buildFunction_DgoLoad(etype, etype.Term, g, new(looper), false)
 			g.Return(Id("_index_"))
 		}).
 		Line()
@@ -938,7 +946,7 @@ func (d *Generator) buildFunctionsForType(etype *exported.Type, file *File) {
 		Id("int").
 		BlockFunc(func(g *Group) {
 			g.Var().Id("cobj").Op("*").Qual(dgoMod, "Dart_CObject")
-			buildFunction_DgoStore(etype, etype.Term, g, new(looper))
+			buildFunction_DgoStore(etype, etype.Term, g, new(looper), false)
 			g.Id("_").Op("=").Id("cobj")
 			g.Return(Id("_index_"))
 		}).Line()
