@@ -16,7 +16,10 @@ extension GeneratorContextExt on GeneratorContext {
   }
 
   void pipe(void input) {}
-  void then(BlockFunction f) => f();
+  void then(BlockFunction f) {
+    final result = f();
+    if (result is String) sln(result);
+  }
 
   void for_<T>(Iterable<T> iter, Function(T) f) {
     for (final i in iter) {

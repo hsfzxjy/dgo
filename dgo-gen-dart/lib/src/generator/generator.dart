@@ -52,9 +52,8 @@ class Generator {
       ..sln('switch (typeId) {')
       ..for_(
         typeNames,
-        (typeName) => ctx
-          ..sln('case $typeName.typeId:')
-          ..sln('return $typeName.\$dgoLoad(port, args);'),
+        (typeName) => 'case $typeName.typeId:'
+            'return $typeName.\$dgoLoad(port, args);',
       )
       ..sln('default:')
       ..sln("throw 'dgo:dart: cannot build object for typeId=\$typeId'; } }");
@@ -65,9 +64,8 @@ class Generator {
       ..sln('switch (T) {')
       ..for_(
         typeNames,
-        (typeName) => ctx
-          ..sln('case $typeName:')
-          ..sln('return $typeName.\$dgoLoad(port, args) as T;'),
+        (typeName) => 'case $typeName:'
+            'return $typeName.\$dgoLoad(port, args) as T;',
       )
       ..sln('default:')
       ..sln("throw 'dgo:dart: cannot build object for type=\$T'; } }");

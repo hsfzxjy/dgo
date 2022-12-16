@@ -65,15 +65,12 @@ class Method {
       ..sln('\$core.int $vSize = ${selfSize == -1 ? "\$dgoGoSize" : selfSize};')
       ..for_(
         params,
-        (p) => ctx
-          ..if_(
-            p.term.isGoNotDynamic,
-            () => ctx.sln('$vSize += ${p.term.goSize};'),
-            else_: () => ctx
+        (p) => p.term.isGoNotDynamic
+            ? '$vSize += ${p.term.goSize};'
+            : (ctx
               ..sln('{ final $vHolder = ${p.name};')
               ..then(p.term.writeSnippet$dgoGoSize)
-              ..sln('}'),
-          ),
+              ..sln('}')),
       )
       ..sln();
   }
@@ -89,11 +86,10 @@ class Method {
   void writePinTokenSnippet() => _writeSnippet(
       selfSize: 3,
       methodFlag: '\$dgo.GoMethod.pinned',
-      storeSelf: () =>
-          ctx..sln('$vIndex = _token.\$dgoStore($vArgs, $vIndex);'));
+      storeSelf: () => '$vIndex = _token.\$dgoStore($vArgs, $vIndex);');
 
-  void writeSnippet() => _writeSnippet(
-      storeSelf: () => ctx..sln('$vIndex = \$dgoStore($vArgs, $vIndex);'));
+  void writeSnippet() =>
+      _writeSnippet(storeSelf: () => '$vIndex = \$dgoStore($vArgs, $vIndex);');
 
   // TODO: BAD, BAD, refactor this
   void _writeSnippet(
@@ -122,7 +118,7 @@ class Method {
       )
       ..if_(
         returnType == null,
-        () => ctx.sln('return \$future;'),
+        () => 'return \$future;',
         else_: () => ctx
           ..sln('{')
           ..sln('final $vArgs = (await \$future).iterator;')

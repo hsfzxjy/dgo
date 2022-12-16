@@ -410,14 +410,12 @@ class OpStruct extends Namable {
     final vField = vHolder.dup;
     ctx.for_(
       goFields,
-      (field) => ctx.if_(
-        field.isGoNotDynamic,
-        () => ctx.sln('$vSize += ${field.goSize};'),
-        else_: () => ctx
-          ..sln('{ final $vField = $vHolder.${field.name};')
-          ..alias({vHolder: vField}, field.writeSnippet$dgoGoSize)
-          ..sln('}'),
-      ),
+      (field) => field.isGoNotDynamic
+          ? '$vSize += ${field.goSize};'
+          : (ctx
+            ..sln('{ final $vField = $vHolder.${field.name};')
+            ..alias({vHolder: vField}, field.writeSnippet$dgoGoSize)
+            ..sln('}')),
     );
   }
 }

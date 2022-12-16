@@ -100,9 +100,7 @@ class TypeDefinition {
     ..sln('switch (value) {')
     ..for_(
       enumMembers,
-      (m) => ctx
-        ..sln('case ${m.value}:')
-        ..sln('return ${m.name};'),
+      (m) => 'case ${m.value}: return ${m.name};',
     )
     ..sln('default:')
     ..sln("throw 'dgo:dart: cannot convert \$value to $entryName';")
@@ -114,14 +112,14 @@ class TypeDefinition {
     ..sln('@\$meta.immutable')
     ..if_(
       isPinnable,
-      () => ctx.sln('class $entryName extends \$dgo.Pinnable {'),
-      else_: () => ctx..sln('class $entryName extends \$dgo.DgoObject {'),
+      () => 'class $entryName extends \$dgo.Pinnable {',
+      else_: () => 'class $entryName extends \$dgo.DgoObject {',
     );
 
   void _buildConstructorStruct() => ctx
     ..for_(
       (ir as OpStruct).fields.values,
-      (field) => ctx.sln('final ${field.term.dartType} ${field.name};'),
+      (field) => 'final ${field.term.dartType} ${field.name};',
     )
     ..str('const $entryName(')
     ..sln(structFields.values.map((field) => 'this.${field.name}').joinComma)
@@ -155,8 +153,8 @@ class TypeDefinition {
     ..scope({}, ir.writeSnippet$dgoLoad)
     ..if_(
       ir is OpStruct,
-      () => ctx.sln('return $vHolder;'),
-      else_: () => ctx.sln('return $entryName$constructorName($vHolder);'),
+      () => 'return $vHolder;',
+      else_: () => 'return $entryName$constructorName($vHolder);',
     )
     ..sln('}');
 
@@ -190,8 +188,10 @@ class TypeDefinition {
     ..sln('\$core.int code = 0;')
     ..if_(
       ir is OpStruct,
-      () =>
-          ctx..for_(struct.fields.values, (f) => 'code ^= ${f.name}.hashCode;'),
+      () => ctx.for_(
+        struct.fields.values,
+        (f) => 'code ^= ${f.name}.hashCode;',
+      ),
       else_: () => 'code ^= \$inner.hashCode;',
     )
     ..sln('return code; }');
@@ -242,7 +242,7 @@ class TypeDefinition {
     ..sln("'must be called for exactly once'; }")
     ..sln('_disposed = true;')
     ..for_(struct.chans.values,
-        (ch) => ctx..sln('\$c${ch.chid}dcb?.remove(); \$c${ch.chid}.close();'))
+        (ch) => '\$c${ch.chid}dcb?.remove(); \$c${ch.chid}.close();')
     ..sln('\$dgo.PreservedGoCall.tokenDispose(_port, [_version, _lid, _key]);')
     ..sln('return _data; }')
     ..sln()
@@ -280,17 +280,14 @@ class TypeDefinition {
       ..sln()
       ..for_(
         struct.chans.values,
-        (ch) => ctx
-          ..sln('\$async.Stream<${ch.dartType}>')
-          ..sln('get ${ch.name} => _token.\$c${ch.chid}.stream;'),
+        (ch) => '\$async.Stream<${ch.dartType}>'
+            'get ${ch.name} => _token.\$c${ch.chid}.stream;',
       )
       ..sln()
       ..for_(
         ir.fields.values,
-        (field) => ctx
-          ..sln('${field.dartType} get ${field.name} =>')
-          ..sln(' _token._data.${field.name};')
-          ..sln(),
+        (field) => '${field.dartType} get ${field.name} =>'
+            ' _token._data.${field.name};',
       )
       ..for_(
         methods,
