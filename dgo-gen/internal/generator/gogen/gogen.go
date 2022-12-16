@@ -476,6 +476,7 @@ func buildFunction_DgoStore(etype *exported.Type, term ir.Term, g *Group, looper
 
 func buildFunction_method(etype *exported.Type, method exported.TypeMethod, g *Group) {
 	g.Var().Id("cobj").Op("*").Qual(dgoMod, "Dart_CObject")
+	g.Id("_").Op("=").Id("cobj")
 	g.Id("_index_").Op(":=").Lit(0)
 
 	g.Var().Id("callback").Uint64()
@@ -710,6 +711,7 @@ func buildFunction_chanworker(etype *exported.Type, g *Group) {
 	g.Var().Id("keepAlive").Qual(kaMod, "Holder")
 	g.Id("_").Op("=").Id("keepAlive")
 	g.Var().Id("cobj").Op("*").Qual(dgoMod, "Dart_CObject")
+	g.Id("_").Op("=").Id("cobj")
 	g.Line()
 
 	chans := make([]struct {
