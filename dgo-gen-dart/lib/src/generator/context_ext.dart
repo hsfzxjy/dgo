@@ -1,22 +1,29 @@
 part of 'generator.dart';
 
-typedef BlockFunction = void Function();
+typedef BlockFunction<R> = R Function();
 
 extension GeneratorContextExt on GeneratorContext {
   void str(Object? content) => this..buffer.write(content);
   void sln([Object? content = '']) => this..buffer.writeln(content);
-  void if_(bool cond, BlockFunction ifClause, {BlockFunction? else_}) {
+  void if_(bool cond, Function() ifClause, {Function()? else_}) {
     if (cond) {
-      ifClause();
+      final result = ifClause();
+      if (result is String) sln(result);
     } else if (else_ != null) {
-      else_();
+      final result = else_();
+      if (result is String) sln(result);
     }
   }
 
   void pipe(void input) {}
   void then(BlockFunction f) => f();
 
-  void for_<T>(Iterable<T> iter, void Function(T) f) => iter.forEach(f);
+  void for_<T>(Iterable<T> iter, Function(T) f) {
+    for (final i in iter) {
+      final result = f(i);
+      if (result is String) sln(result);
+    }
+  }
 
   void scope(Map<GeneratorSymbol, String> symbolMap, Function fn) {
     final newContext = GeneratorContext(buffer, importer)
