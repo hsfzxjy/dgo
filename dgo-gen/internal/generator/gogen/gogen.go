@@ -18,6 +18,7 @@ import (
 const dgoMod = "github.com/hsfzxjy/dgo/go"
 const pchanMod = dgoMod + "/pin/pchan"
 const pcopMod = dgoMod + "/pin/pcop"
+const kaMod = dgoMod + "/keepalive"
 const cgoPreamble = "#include <stdint.h>\n#include <stdbool.h>"
 
 func typeNameOf(etype *exported.Type, term ir.Term) *Statement {
@@ -323,7 +324,7 @@ func storeFromString(g *Group, holder Code) {
 			Block(
 				Id("o").Op("=").Id("o").Op("+").Lit("\x00")),
 
-		Op("*").Id("keepAlive").Op("=").Append(Op("*").Id("keepAlive"), Id("o")),
+		Id("keepAlive").Dot("AddString").Call(String().Call(Id("o"))),
 
 		Id("header").
 			Op(":=").
@@ -543,8 +544,8 @@ func buildFunction_method(etype *exported.Type, method exported.TypeMethod, g *G
 			}
 		})
 
-	g.Var().Id("keepAliveArr").Index().Any()
-	g.Id("keepAlive").Op(":=").Op("&").Id("keepAliveArr")
+	g.Var().Id("keepAliveHolder").Qual(kaMod, "Holder")
+	g.Var().Id("keepAlive").Op("=&").Id("keepAliveHolder")
 	g.Id("_index_").Op("=").Lit(0)
 
 	defineArrAndStoreCallback := func(g *Group, nExtraArgs int) {
@@ -706,7 +707,7 @@ func buildFunction_chanworker(etype *exported.Type, g *Group) {
 	g.Var().Id("size").Int()
 	g.Id("_").Op("=").Id("size")
 	g.Var().Id("arr").Index().Qual(dgoMod, "Dart_CObject")
-	g.Var().Id("keepAlive").Index().Any()
+	g.Var().Id("keepAlive").Qual(kaMod, "Holder")
 	g.Id("_").Op("=").Id("keepAlive")
 	g.Var().Id("cobj").Op("*").Qual(dgoMod, "Dart_CObject")
 	g.Line()
@@ -838,7 +839,7 @@ func buildFunction_chanworker(etype *exported.Type, g *Group) {
 	g.Comment(" cleanup")
 	g.Id("arr").Op("=").Nil()
 	g.Id("_index_").Op("=").Lit(0)
-	g.Id("keepAlive").Op("=").Nil()
+	g.Id("keepAlive").Dot("Free").Call()
 	g.Id("cobj").Op("=").Nil()
 	g.Id("size").Op("=").Lit(0)
 	g.Id("dcbs").Op("=").Id("dcbs").Index(Empty(), Lit(0))
@@ -931,7 +932,7 @@ func (d *Generator) buildFunctionsForType(etype *exported.Type, file *File) {
 		Params(
 			Id("arr").Index().Qual(dgoMod, "Dart_CObject"),
 			Id("_index_").Id("int"),
-			Id("keepAlive").Op("*").Index().Id("any")).
+			Id("keepAlive").Op("*").Qual(kaMod, "Holder")).
 		Id("int").
 		BlockFunc(func(g *Group) {
 			g.Var().Id("cobj").Op("*").Qual(dgoMod, "Dart_CObject")
