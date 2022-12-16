@@ -12,6 +12,9 @@ import 'package:test/test.dart';
 import 'package:test_gen_dart/generated/registrar.dart';
 import 'package:test_gen_dart/generated/test_gen_go/module.dart';
 
+import 'package:test_gen_dart/generated/test_gen_go/internal/module.dart'
+    show StructWithSimpleTypes;
+
 final dlib = DynamicLibrary.open('../_build/libtest_gen.so');
 
 void main() async {
@@ -63,6 +66,13 @@ void main() async {
     test('ReturnsExternalType', () async {
       final result = await Tester().ReturnsExternalType();
       expect(result.FieldString, 'string');
+    });
+
+    test('ReturnsStructWithSimpleTypes', () async {
+      final obj = StructWithSimpleTypes(-12, -24, -36, -48, -60, 12, 24, 36, 48,
+          60, 72, 3, 3.14, true, 'string');
+      final obj2 = await Tester().ReturnsStructWithSimpleTypes(obj);
+      expect(obj, equals(obj2));
     });
   });
 

@@ -10,6 +10,7 @@ import (
 
 	dgo "github.com/hsfzxjy/dgo/go"
 	"github.com/hsfzxjy/dgo/go/pin"
+	"github.com/hsfzxjy/dgo/tests/test_gen/go/internal"
 	"github.com/hsfzxjy/dgo/tests/test_gen/go/internal/subpack"
 )
 
@@ -64,6 +65,11 @@ func (Tester) ReturnsMap(n int) (ret map[int]string) {
 //dgo:export
 func (Tester) ReturnsExternalType() subpack.StructInSubpack {
 	return subpack.StructInSubpack{FieldString: "string"}
+}
+
+//dgo:export
+func (Tester) ReturnsStructWithSimpleTypes(s internal.StructWithSimpleTypes) internal.StructWithSimpleTypes {
+	return s
 }
 
 //dgo:export
