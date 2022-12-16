@@ -13,6 +13,8 @@ import (
 	"runtime/cgo"
 	"sync"
 	"unsafe"
+
+	"github.com/hsfzxjy/dgo/go/keepalive"
 )
 
 type (
@@ -63,7 +65,7 @@ func (p *Port) postCObject(obj *Dart_CObject, raises bool) bool {
 	return ret
 }
 
-func (p *Port) postCObjects(objs []Dart_CObject, keepAlive any, raises bool) bool {
+func (p *Port) postCObjects(objs []Dart_CObject, keepAlive keepalive.Holder, raises bool) bool {
 	var pobjs *Dart_CObject
 	if len(objs) != 0 {
 		pobjs = &objs[0]
@@ -74,13 +76,14 @@ func (p *Port) postCObjects(objs []Dart_CObject, keepAlive any, raises bool) boo
 		noescape(pobjs)))
 	runtime.KeepAlive(objs)
 	runtime.KeepAlive(keepAlive)
+	keepAlive.Free()
 	if !ret && raises {
 		p.panicPostFailure()
 	}
 	return ret
 }
 
-func (p *Port) postCObjects2(objs1, objs2 []Dart_CObject, keepAlive any, raises bool) bool {
+func (p *Port) postCObjects2(objs1, objs2 []Dart_CObject, keepAlive keepalive.Holder, raises bool) bool {
 	var p1, p2 *Dart_CObject
 	if len(objs1) != 0 {
 		p1 = &objs1[0]
@@ -97,6 +100,7 @@ func (p *Port) postCObjects2(objs1, objs2 []Dart_CObject, keepAlive any, raises 
 	runtime.KeepAlive(objs1)
 	runtime.KeepAlive(objs2)
 	runtime.KeepAlive(keepAlive)
+	keepAlive.Free()
 	if !ret && raises {
 		p.panicPostFailure()
 	}
@@ -135,21 +139,21 @@ func (dcb CallableDartCallback) Call(args ...any) bool {
 		}
 		return port.postInt(int64(dcb.serialize()), true)
 	}
-
+	var keepAlive keepalive.Holder
 	n := len(args)
 	cobjs := make([]Dart_CObject, n+1)
-	cobjectLoadFromValue(&cobjs[0], dcb.serialize())
+	cobjectLoadFromValue(&cobjs[0], dcb.serialize(), &keepAlive)
 	for i, arg := range args {
-		args[i] = cobjectLoadFromValue(&cobjs[i+1], arg)
+		cobjectLoadFromValue(&cobjs[i+1], arg, &keepAlive)
 	}
-	return port.postCObjects(cobjs[:n+1], args, true)
+	return port.postCObjects(cobjs[:n+1], keepAlive, true)
 }
 
 func (dcb CallableDartCallback) callRaw(args []Dart_CObject) bool {
 	var head [1]Dart_CObject
 	head[0].Type = Dart_CObject_kInt64
 	*(*C.int64_t)(unsafe.Pointer(&head[0].Value)) = C.int64_t(dcb.serialize())
-	return dcb.port.postCObjects2(head[:], args, nil, false)
+	return dcb.port.postCObjects2(head[:], args, keepalive.Holder{}, false)
 }
 
 /* dartCallbackGroup Methods */
@@ -163,7 +167,7 @@ func (g dartCallbackGroup) callRaw(args []Dart_CObject) bool {
 		head[i+1].Type = Dart_CObject_kDouble
 		*(*C.double)(unsafe.Pointer(&head[i+1].Value)) = C.double(s)
 	}
-	return g[0].port.postCObjects2(head, args, nil, false)
+	return g[0].port.postCObjects2(head, args, keepalive.Holder{}, false)
 }
 
 /* EXPORTS */
@@ -310,8 +314,7 @@ func cobjectParse(port *Port, cobj *Dart_CObject) any {
 	}
 }
 
-func cobjectLoadFromValue(cobj *Dart_CObject, xx any) (mod any) {
-	mod = xx
+func cobjectLoadFromValue(cobj *Dart_CObject, xx any, keepAlive *keepalive.Holder) {
 	pValue := unsafe.Pointer(&cobj.Value)
 	switch x := xx.(type) {
 	case nil:
@@ -370,8 +373,8 @@ func cobjectLoadFromValue(cobj *Dart_CObject, xx any) (mod any) {
 	case string:
 		if len(x) == 0 || x[len(x)-1] != '\x00' {
 			x = x + "\x00"
-			mod = x
 		}
+		keepAlive.AddString(x)
 		header := (*reflect.StringHeader)(unsafe.Pointer(&x))
 		cobj.Type = C.Dart_CObject_kString
 		*(*uintptr)(pValue) = header.Data
