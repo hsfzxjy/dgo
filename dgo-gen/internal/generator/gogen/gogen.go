@@ -19,6 +19,7 @@ const dgoMod = "github.com/hsfzxjy/dgo/go"
 const pchanMod = dgoMod + "/pin/pchan"
 const pcopMod = dgoMod + "/pin/pcop"
 const kaMod = dgoMod + "/keepalive"
+const codecMod = dgoMod + "/codec"
 const cgoPreamble = "#include <stdint.h>\n#include <stdbool.h>"
 
 func typeNameOf(etype *exported.Type, term ir.Term) *Statement {
@@ -88,17 +89,6 @@ func pinToken(typeParam Code) *Statement {
 	return Qual(dgoMod+"/pin", "Token").Index(typeParam)
 }
 
-func loadIntoBasic(g *Group, src, srcType, dst, dstType Code) {
-	g.Add(dst).Op("=").
-		Add(dstType).
-		Parens(
-			Op("*").
-				Parens(Op("*").Add(srcType)).
-				Parens(
-					Qual("unsafe", "Pointer").Parens(Op("&").Add(src).Dot("Value"))))
-	g.Add(incIndex())
-}
-
 func loadIntoString(g *Group, src, dst Code) {
 	g.Block(
 		Id("pStr").Op(":=").
@@ -133,30 +123,22 @@ func loadIntoString(g *Group, src, dst Code) {
 }
 
 func loadIntoInt(g *Group, src, dst, dstType Code) {
-	g.Block(
-		Id("_obj_").Op(":=").Add(src),
-		If(Id("_obj_").Dot("Type").
-			Op("==").
-			Qual(dgoMod, "Dart_CObject_kInt32")).
-			BlockFunc(func(g *Group) {
-				loadIntoBasic(g, Id("_obj_"), Qual("C", "int32_t"), dst, dstType)
-			}).
-			Else().
-			BlockFunc(func(g *Group) {
-				loadIntoBasic(g, Id("_obj_"), Qual("C", "int64_t"), dst, dstType)
-			}),
-	)
+	g.Add(dst).Op("=").Qual(codecMod, "DecodeInteger").Index(dstType).Call(src)
+	g.Add(incIndex())
 }
 
 func loadBasic(t *ir.Basic, g *Group, holder Code) {
 	info := t.TypeInfo
 	switch {
 	case info&types.IsBoolean != 0:
-		loadIntoBasic(g, arrIndex(), Qual("C", "bool"), holder, Id("bool"))
+		g.Add(holder).Op("=").Qual(codecMod, "DecodeBool").Call(arrIndex())
+		g.Add(incIndex())
 	case info&types.IsInteger != 0:
 		loadIntoInt(g, arrIndex(), holder, Id(t.TypeName))
 	case info&types.IsFloat != 0:
-		loadIntoBasic(g, arrIndex(), Qual("C", "double"), holder, Id(t.TypeName))
+		g.Add(holder).Op("=").Qual(codecMod, "DecodeFloat").Index(Id(t.TypeName)).Call(arrIndex())
+		g.Add(incIndex())
+
 	case info&types.IsString != 0:
 		loadIntoString(g, arrIndex(), holder)
 	}
@@ -302,21 +284,6 @@ func buildFunction_DgoLoad(etype *exported.Type, term ir.Term, g *Group, looper 
 	}
 }
 
-func storeFromBasic(g *Group, holder, kind, ctype Code) {
-	g.Id("cobj").
-		Op("=").
-		Op("&").Id("arr").Index(Id("_index_"))
-	g.Id("cobj").Dot("Type").
-		Op("=").
-		Add(kind)
-	g.
-		Op("*").Parens(Op("*").Add(ctype)).
-		Parens(Qual("unsafe", "Pointer").Parens(Op("&").Id("cobj").Dot("Value"))).
-		Op("=").
-		Add(ctype).Parens(holder)
-	g.Add(incIndex())
-}
-
 func storeFromString(g *Group, holder Code) {
 	g.Block(
 		Id("o").Op(":=").Add(holder),
@@ -351,18 +318,21 @@ func storeFromString(g *Group, holder Code) {
 }
 
 func storeFromInt(g *Group, holder Code) {
-	storeFromBasic(g, holder, Qual(dgoMod, "Dart_CObject_kInt64"), Qual("C", "int64_t"))
+	g.Qual(codecMod, "EncodeInteger").Call(Int64().Call(holder), Op("&").Add(arrIndex()))
+	g.Add(incIndex())
 }
 
 func storeBasic(t *ir.Basic, g *Group, holder Code) {
 	info := t.TypeInfo
 	switch {
 	case info&types.IsBoolean != 0:
-		storeFromBasic(g, holder, Qual(dgoMod, "Dart_CObject_kBool"), Qual("C", "bool"))
+		g.Qual(codecMod, "EncodeBool").Call(Bool().Call(holder), Op("&").Add(arrIndex()))
+		g.Add(incIndex())
 	case info&types.IsInteger != 0:
 		storeFromInt(g, holder)
 	case info&types.IsFloat != 0:
-		storeFromBasic(g, holder, Qual(dgoMod, "Dart_CObject_kDouble"), Qual("C", "double"))
+		g.Qual(codecMod, "EncodeFloat").Call(Float64().Call(holder), Op("&").Add(arrIndex()))
+		g.Add(incIndex())
 	case info&types.IsString != 0:
 		storeFromString(g, holder)
 	}
@@ -487,8 +457,8 @@ func buildFunction_method(etype *exported.Type, method exported.TypeMethod, g *G
 	g.Id("_").Op("=").Id("cobj")
 	g.Id("_index_").Op(":=").Lit(0)
 
-	g.Var().Id("callback").Uint64()
-	loadIntoBasic(g, arrIndex(), Qual("C", "uint64_t"), Id("callback"), Uint64())
+	g.Id("callback").Op(":=").Qual(codecMod, "DecodeUint64").Call(arrIndex())
+	g.Add(incIndex())
 	g.Id("callback").Op("|=").Uint64().Call(Qual(dgoMod, "CF_POP"))
 	if method.Return != nil {
 		g.Id("callback").Op("|=").Uint64().Call(Qual(dgoMod, "CF_PACKARRAY"))
