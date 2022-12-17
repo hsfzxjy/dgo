@@ -585,6 +585,7 @@ func buildFunction_method(etype *exported.Type, method exported.TypeMethod, g *G
 			Op("&").Id("arr").Index(Lit(0)),
 		)
 		g.Qual("runtime", "KeepAlive").Call(Id("keepAlive"))
+		g.Id("keepAlive").Dot("Free").Call()
 	})
 }
 
